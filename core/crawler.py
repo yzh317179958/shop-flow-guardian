@@ -2,6 +2,7 @@
 Fiido 电商网站产品爬虫模块
 
 负责从 Fiido.com 网站发现和抓取商品信息，支持 Shopify JSON API 和 HTML 解析两种方式。
+集成缓存机制，提升性能。
 """
 
 import logging
@@ -15,6 +16,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from core.models import Product, ProductVariant, Selectors
+from core.cache import CrawlerCache
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +26,16 @@ class ProductCrawler:
 
     实现商品分类发现、商品列表抓取、商品详情解析等功能。
     优先使用 Shopify JSON API，失败时降级到 HTML 解析。
+    支持缓存机制，避免重复爬取。
     """
 
     def __init__(
         self,
         base_url: str = "https://fiido.com",
         timeout: int = 30,
-        max_retries: int = 3
+        max_retries: int = 3,
+        use_cache: bool = True,
+        cache_ttl_hours: int = 24
     ):
         """初始化产品爬虫
 
@@ -38,9 +43,19 @@ class ProductCrawler:
             base_url: 网站根 URL
             timeout: 请求超时时间（秒）
             max_retries: 最大重试次数
+            use_cache: 是否启用缓存
+            cache_ttl_hours: 缓存有效期（小时）
         """
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
+        self.use_cache = use_cache
+
+        # 初始化缓存
+        if use_cache:
+            self.cache = CrawlerCache(ttl_hours=cache_ttl_hours)
+            print(f"✅ 缓存已启用（TTL: {cache_ttl_hours}小时）")
+        else:
+            self.cache = None
 
         # 配置带重试机制的 Session
         self.session = requests.Session()
@@ -235,10 +250,21 @@ class ProductCrawler:
             Product 对象，解析失败返回 None
         """
         try:
-            # 提取基本信息
-            product_id = str(product_data.get('id', ''))
+            # 构建商品 URL
             handle = product_data.get('handle', '')
             product_url = f"{self.base_url}/products/{handle}"
+
+            # 检查缓存
+            if self.use_cache and self.cache:
+                cached_data = self.cache.get(product_url)
+                if cached_data:
+                    try:
+                        return Product(**cached_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to load from cache: {e}")
+
+            # 提取基本信息
+            product_id = str(product_data.get('id', ''))
 
             # 提取价格范围
             variants_data = product_data.get('variants', [])
@@ -288,6 +314,10 @@ class ProductCrawler:
                     'available': product_data.get('available', False)
                 }
             )
+
+            # 保存到缓存
+            if self.use_cache and self.cache:
+                self.cache.set(product_url, product.model_dump(mode='json'))
 
             return product
 
