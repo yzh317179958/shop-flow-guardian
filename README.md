@@ -174,6 +174,72 @@ playwright install chromium
 2. 在 "Artifacts" 部分下载报告
 3. 解压查看 HTML 报告和 AI 分析
 
+## 告警与监控 🔔
+
+### 智能告警系统
+
+测试失败时自动发送告警通知，支持多种渠道：
+
+| 渠道 | 国内可用 | 推荐度 | 特点 |
+|------|---------|--------|------|
+| **Slack** | ❌ 需代理 | ⭐⭐⭐⭐ | 富文本消息、即时通知 |
+| **邮件** | ✅ 可用 | ⭐⭐⭐⭐⭐ | 详细报告、适合团队 |
+| **企业微信** | ✅ 可用 | ⭐⭐⭐⭐⭐ | 国内友好、企业首选 |
+
+### 告警触发条件
+
+- 🚨 **P0 核心商品失败** - 立即告警
+- ⚠️ **通过率低于阈值** - 默认 90%
+- ⚠️ **连续失败 3 次** - 趋势恶化
+- ℹ️ **失败数量突增** - 异常检测
+
+### 快速配置（3 步）
+
+1. **配置环境变量**
+
+```bash
+# 复制示例文件
+cp .env.example .env
+
+# 编辑 .env 添加 Webhook URL 或 SMTP 配置
+# Slack: SLACK_WEBHOOK_URL=https://hooks.slack.com/...
+# 邮件: SMTP_USER=your-email@gmail.com
+#      SMTP_PASSWORD=your-app-password
+```
+
+2. **测试告警**
+
+```bash
+# 生成测试结果
+python scripts/collect_test_results.py
+
+# 发送测试告警
+python scripts/send_alerts.py --channel slack  # 或 email/wechat
+```
+
+3. **配置 GitHub Secrets**
+
+在仓库设置中添加（用于 CI/CD）：
+- `SLACK_WEBHOOK_URL` (可选)
+- `SMTP_USER` 和 `SMTP_PASSWORD` (可选)
+
+详细配置指南: [告警配置指南](docs/alert-setup-guide.md)
+
+### 健康监控
+
+```bash
+# 查看测试系统健康状况
+python scripts/check_test_health.py
+
+# 输出示例:
+# ✅ 测试系统健康报告
+# ==========================================
+# 状态: HEALTHY
+# 平均通过率: 95.2%
+# P0 失败次数: 0
+# 趋势: 📈 IMPROVING
+```
+
 ```
 
 ## 项目结构

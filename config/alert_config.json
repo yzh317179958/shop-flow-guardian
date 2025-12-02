@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "enabled": true,
+  "description": "告警系统配置文件",
+
+  "thresholds": {
+    "pass_rate": 0.90,
+    "consecutive_failures": 3,
+    "failure_spike_multiplier": 2.0,
+    "p0_failure_tolerance": 0,
+    "p1_failure_tolerance": 2
+  },
+
+  "channels": {
+    "slack": {
+      "enabled": true,
+      "webhook_env": "SLACK_WEBHOOK_URL",
+      "mention_users": ["@qa-team", "@dev-team"],
+      "mention_on_p0_failure": true,
+      "include_screenshots": false,
+      "max_failures_to_show": 5
+    },
+    "email": {
+      "enabled": true,
+      "recipients_env": "ALERT_EMAIL_RECIPIENTS",
+      "sender_env": "ALERT_EMAIL_SENDER",
+      "smtp_server_env": "SMTP_SERVER",
+      "smtp_port_env": "SMTP_PORT",
+      "smtp_user_env": "SMTP_USER",
+      "smtp_password_env": "SMTP_PASSWORD",
+      "include_html_report": true,
+      "attach_screenshots": false
+    },
+    "wechat": {
+      "enabled": false,
+      "webhook_env": "WECHAT_WEBHOOK_URL",
+      "mentioned_list": [],
+      "mentioned_mobile_list": []
+    }
+  },
+
+  "quiet_hours": {
+    "enabled": false,
+    "start": "22:00",
+    "end": "08:00",
+    "timezone": "Asia/Shanghai",
+    "suppress_non_critical": true
+  },
+
+  "alert_rules": [
+    {
+      "name": "p0_failure",
+      "description": "P0 核心商品测试失败",
+      "severity": "critical",
+      "condition": "p0_failures > 0",
+      "channels": ["slack", "email"],
+      "cooldown_minutes": 0
+    },
+    {
+      "name": "low_pass_rate",
+      "description": "测试通过率低于阈值",
+      "severity": "high",
+      "condition": "pass_rate < thresholds.pass_rate",
+      "channels": ["slack", "email"],
+      "cooldown_minutes": 60
+    },
+    {
+      "name": "consecutive_failures",
+      "description": "连续多次测试失败",
+      "severity": "high",
+      "condition": "consecutive_failures >= thresholds.consecutive_failures",
+      "channels": ["slack", "email"],
+      "cooldown_minutes": 120
+    },
+    {
+      "name": "failure_spike",
+      "description": "失败数量突然增加",
+      "severity": "medium",
+      "condition": "failures > avg_failures * thresholds.failure_spike_multiplier",
+      "channels": ["slack"],
+      "cooldown_minutes": 180
+    }
+  ],
+
+  "notification_templates": {
+    "slack": {
+      "critical": "🚨 *严重告警* - {reason}",
+      "high": "⚠️  *高优先级告警* - {reason}",
+      "medium": "ℹ️ *告警* - {reason}",
+      "low": "📢 *提示* - {reason}"
+    },
+    "email": {
+      "subject_template": "🚨 Fiido E2E 测试告警 - {severity} - {reason}",
+      "header_template": "<h2>🚨 Fiido E2E 测试告警</h2>"
+    }
+  },
+
+  "history": {
+    "enabled": true,
+    "max_records": 1000,
+    "storage_file": "data/alert_history.json",
+    "track_metrics": [
+      "timestamp",
+      "pass_rate",
+      "total_tests",
+      "failed_tests",
+      "p0_failures",
+      "alert_triggered",
+      "alert_channels"
+    ]
+  }
+}
