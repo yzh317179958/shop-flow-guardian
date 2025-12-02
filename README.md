@@ -68,9 +68,40 @@ playwright install chromium
 # 7. 指定商品数据文件
 ./run_tests.sh --product-file=data/demo_products.json
 
-# 生成 AI 报告（待实现）
-export CLAUDE_API_KEY="your-key"
-python scripts/generate_ai_report.py
+# 8. 生成 AI 智能报告 (DeepSeek 免费)
+./run.sh python scripts/generate_universal_ai_report.py --provider deepseek
+
+# 9. 仅生成摘要
+./run.sh python scripts/generate_universal_ai_report.py --provider deepseek --summary-only
+```
+
+## AI 智能报告功能 ✨
+
+### 快速开始 (3步，完全免费)
+
+1. **获取 DeepSeek API Key**: 访问 https://platform.deepseek.com/ (支持国内手机号注册)
+2. **配置环境变量**: 在 `.env` 文件中添加 `DEEPSEEK_API_KEY=sk-xxx`
+3. **生成报告**: `./run.sh python scripts/generate_universal_ai_report.py --provider deepseek`
+
+### AI 报告功能
+
+- ✅ **自动分析**: 智能分析测试结果，识别失败模式
+- 📊 **关键指标**: 通过率、失败分布、趋势统计
+- 🔍 **失败分析**: 按优先级分类问题 (P0/P1/P2)
+- 💡 **修复建议**: 提供具体的问题修复方案
+- 📈 **趋势洞察**: 识别高失败率商品和共同问题
+
+### 支持的 AI 提供商
+
+| 提供商 | 费用 | 国内访问 | 注册难度 | 推荐度 |
+|--------|------|----------|----------|--------|
+| **DeepSeek** | ✅ 免费 | ✅ 快速 | ⭐ 简单 | ⭐⭐⭐⭐⭐ |
+| Claude | 💰 付费 | ❌ 需代理 | ⭐⭐⭐ 困难 | ⭐⭐⭐ |
+
+**推荐使用 DeepSeek**: 每天500万 tokens 免费额度，足够生成1000+次报告！
+
+详细使用指南: [DeepSeek 快速开始](docs/quickstart-deepseek.md)
+
 ```
 
 ## 项目结构
