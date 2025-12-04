@@ -37,7 +37,7 @@ running_tasks = {}
 
 def run_command(command, task_id=None):
     """
-    执行命令并返回结果
+    执行命令并返回结果（支持实时输出捕获）
 
     Args:
         command: 要执行的命令列表
@@ -47,53 +47,199 @@ def run_command(command, task_id=None):
         命令执行结果
     """
     try:
-        result = subprocess.run(
+        # 启动进程，实时捕获输出
+        process = subprocess.Popen(
             command,
             cwd=PROJECT_ROOT,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=600  # 10 分钟超时
+            bufsize=1
         )
 
+        stdout_lines = []
+        stderr_lines = []
+
+        # 如果有task_id，初始化日志存储
+        if task_id:
+            running_tasks[task_id]['logs'] = []
+            running_tasks[task_id]['progress'] = {
+                'current': 0,
+                'total': 0,
+                'message': '正在初始化...'
+            }
+
+        # 实时读取输出
+        import select
+        import time
+
+        timeout = 600  # 10分钟超时
+        start_time = time.time()
+
+        while True:
+            # 检查超时
+            if time.time() - start_time > timeout:
+                process.kill()
+                raise subprocess.TimeoutExpired(command, timeout)
+
+            # 检查进程是否结束
+            if process.poll() is not None:
+                # 读取剩余输出
+                remaining_stdout = process.stdout.read()
+                remaining_stderr = process.stderr.read()
+                if remaining_stdout:
+                    stdout_lines.append(remaining_stdout)
+                    if task_id:
+                        running_tasks[task_id]['logs'].extend(remaining_stdout.splitlines())
+                if remaining_stderr:
+                    stderr_lines.append(remaining_stderr)
+                break
+
+            # 读取stdout
+            line = process.stdout.readline()
+            if line:
+                stdout_lines.append(line)
+                if task_id:
+                    running_tasks[task_id]['logs'].append(line.rstrip())
+                    # 解析进度信息
+                    parse_progress_line(line, task_id)
+
+            time.sleep(0.1)
+
+        returncode = process.returncode
+        stdout = ''.join(stdout_lines)
+        stderr = ''.join(stderr_lines)
+
         output = {
-            'success': result.returncode == 0,
-            'stdout': result.stdout,
-            'stderr': result.stderr,
-            'returncode': result.returncode
+            'success': returncode == 0,
+            'stdout': stdout,
+            'stderr': stderr,
+            'returncode': returncode
         }
 
         if task_id:
-            running_tasks[task_id] = {
-                'status': 'completed' if result.returncode == 0 else 'failed',
+            running_tasks[task_id].update({
+                'status': 'completed' if returncode == 0 else 'failed',
                 'result': output,
                 'completed_at': datetime.now().isoformat()
-            }
+            })
 
         return output
+
     except subprocess.TimeoutExpired:
         error = {'success': False, 'error': '命令执行超时'}
         if task_id:
-            running_tasks[task_id] = {
+            running_tasks[task_id].update({
                 'status': 'timeout',
                 'result': error,
                 'completed_at': datetime.now().isoformat()
-            }
+            })
         return error
     except Exception as e:
         error = {'success': False, 'error': str(e)}
         if task_id:
-            running_tasks[task_id] = {
+            running_tasks[task_id].update({
                 'status': 'error',
                 'result': error,
                 'completed_at': datetime.now().isoformat()
-            }
+            })
         return error
+
+
+def parse_progress_line(line, task_id):
+    """解析日志行，提取进度信息
+
+    Args:
+        line: 日志行
+        task_id: 任务ID
+    """
+    import re
+
+    # 解析 "[1/10] Processing collection: xxx"
+    match = re.search(r'\[(\d+)/(\d+)\]\s+Processing collection:\s+(.+)', line)
+    if match:
+        current = int(match.group(1))
+        total = int(match.group(2))
+        collection = match.group(3).strip()
+        running_tasks[task_id]['progress'] = {
+            'current': current,
+            'total': total,
+            'message': f'正在处理分类 {current}/{total}: {collection}'
+        }
+        return
+
+    # 解析 "Found X products in xxx"
+    match = re.search(r'Found (\d+) products in (.+)', line)
+    if match:
+        count = match.group(1)
+        collection = match.group(2).strip()
+        current_progress = running_tasks[task_id].get('progress', {})
+        current_progress['message'] = f'在 {collection} 中发现 {count} 个商品'
+        return
+
+    # 解析 "Discovering all collections..."
+    if 'Discovering all collections' in line:
+        running_tasks[task_id]['progress']['message'] = '正在发现所有商品分类...'
+        return
+
+    # 解析 "Found X collections"
+    match = re.search(r'Found (\d+) collections', line)
+    if match:
+        count = match.group(1)
+        running_tasks[task_id]['progress']['message'] = f'发现了 {count} 个商品分类'
+        running_tasks[task_id]['progress']['total'] = int(count)
+        return
+
+    # 解析统计信息
+    if '扫描分类数:' in line:
+        match = re.search(r'扫描分类数:\s*(\d+)', line)
+        if match and task_id in running_tasks:
+            running_tasks[task_id]['stats'] = {'collections': int(match.group(1))}
+
+    if '商品总数:' in line:
+        match = re.search(r'商品总数:\s*(\d+)', line)
+        if match and task_id in running_tasks:
+            if 'stats' not in running_tasks[task_id]:
+                running_tasks[task_id]['stats'] = {}
+            running_tasks[task_id]['stats']['total_products'] = int(match.group(1))
+
+    if '新增商品:' in line:
+        match = re.search(r'新增商品:\s*(\d+)', line)
+        if match and task_id in running_tasks:
+            if 'stats' not in running_tasks[task_id]:
+                running_tasks[task_id]['stats'] = {}
+            running_tasks[task_id]['stats']['new_products'] = int(match.group(1))
+
+    if '执行耗时:' in line:
+        match = re.search(r'执行耗时:\s*([\d.]+)\s*秒', line)
+        if match and task_id in running_tasks:
+            if 'stats' not in running_tasks[task_id]:
+                running_tasks[task_id]['stats'] = {}
+            running_tasks[task_id]['stats']['duration'] = float(match.group(1))
 
 
 @app.route('/')
 def index():
     """首页 - 工作台"""
     return render_template('index.html')
+
+
+@app.route('/products')
+def products():
+    """商品管理页面"""
+    return render_template('products.html')
+
+
+@app.route('/tests')
+def tests():
+    """测试执行页面"""
+    return render_template('tests.html')
+
+
+@app.route('/reports')
+def reports():
+    """报告中心页面"""
+    return render_template('reports.html')
 
 
 @app.route('/api/health')
@@ -129,17 +275,28 @@ def list_products():
     products_file = DATA_DIR / 'products.json'
 
     if not products_file.exists():
-        return jsonify({'products': [], 'total': 0})
+        return jsonify({'products': [], 'total': 0, 'metadata': {}})
 
     try:
         with open(products_file) as f:
-            products = json.load(f)
+            data = json.load(f)
+
+        # 处理新格式：{metadata: {...}, products: [...]}
+        if isinstance(data, dict) and 'products' in data:
+            products = data['products']
+            metadata = data.get('metadata', {})
+        else:
+            # 兼容旧格式：直接是数组
+            products = data if isinstance(data, list) else []
+            metadata = {}
 
         return jsonify({
             'products': products,
-            'total': len(products)
+            'total': len(products),
+            'metadata': metadata
         })
     except Exception as e:
+        logger.error(f"Failed to load products: {e}")
         return jsonify({'error': str(e)}), 500
 
 

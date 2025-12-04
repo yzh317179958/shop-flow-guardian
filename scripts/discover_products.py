@@ -138,9 +138,11 @@ def discover_products_from_collections(
     Returns:
         (商品列表, 新增数量, 更新数量)
     """
-    all_products = []
+    # 使用字典进行去重，key为商品ID
+    products_dict = {}
     new_count = 0
     updated_count = 0
+    duplicate_count = 0
     existing_products = existing_products or {}
 
     for i, collection_path in enumerate(collection_paths, 1):
@@ -150,6 +152,13 @@ def discover_products_from_collections(
             products = crawler.discover_products(collection_path, limit=limit_per_collection)
 
             for product in products:
+                # 去重检查：如果商品ID已存在，跳过
+                if product.id in products_dict:
+                    duplicate_count += 1
+                    logger.debug(f"  Skipping duplicate product: {product.name} (ID: {product.id})")
+                    continue
+
+                # 检查是新商品还是更新
                 if product.id in existing_products:
                     # 更新已存在的商品
                     existing_product = existing_products[product.id]
@@ -164,13 +173,20 @@ def discover_products_from_collections(
                     # 新商品
                     new_count += 1
 
-                all_products.append(product)
+                # 添加到去重字典
+                products_dict[product.id] = product
 
             logger.info(f"  Found {len(products)} products in {collection_path}")
 
         except Exception as e:
             logger.error(f"  Failed to process {collection_path}: {e}")
             continue
+
+    # 转换为列表
+    all_products = list(products_dict.values())
+
+    if duplicate_count > 0:
+        logger.info(f"📊 De-duplication: Removed {duplicate_count} duplicate products")
 
     return all_products, new_count, updated_count
 

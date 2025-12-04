@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}测试执行 - Fiido 测试工作台{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2>
+            <i class="bi bi-play-circle"></i> 测试执行
+        </h2>
+        <p class="text-muted">配置和运行自动化测试</p>
+    </div>
+</div>
+
+<!-- 测试配置 -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-gear"></i> 测试配置
+            </div>
+            <div class="card-body">
+                <form id="test-config-form">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">测试范围</label>
+                            <select class="form-select" id="test-scope" onchange="updateTestScope()">
+                                <option value="all">所有商品</option>
+                                <option value="priority">按优先级</option>
+                                <option value="category">按分类</option>
+                                <option value="product">单个商品</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6" id="priority-select" style="display: none;">
+                            <label class="form-label">优先级</label>
+                            <select class="form-select" id="test-priority">
+                                <option value="P0">P0 - 核心商品</option>
+                                <option value="P1">P1 - 重要商品</option>
+                                <option value="P2">P2 - 普通商品</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6" id="category-select" style="display: none;">
+                            <label class="form-label">分类</label>
+                            <select class="form-select" id="test-category">
+                                <option value="">选择分类...</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6" id="product-select" style="display: none;">
+                            <label class="form-label">商品</label>
+                            <select class="form-select" id="test-product">
+                                <option value="">选择商品...</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-success btn-lg" onclick="runTests()">
+                            <i class="bi bi-play-circle"></i> 运行测试
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="resetConfig()">
+                            <i class="bi bi-arrow-clockwise"></i> 重置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> 快速测试
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">快速执行常用测试场景</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-danger" onclick="runQuickTest('P0')">
+                        <i class="bi bi-star"></i> P0 快速测试
+                    </button>
+                    <button class="btn btn-warning" onclick="runQuickTest('P1')">
+                        <i class="bi bi-star-half"></i> P1 快速测试
+                    </button>
+                    <button class="btn btn-primary" onclick="runQuickTest('all')">
+                        <i class="bi bi-grid"></i> 全量测试
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 测试执行状态 -->
+<div class="card mb-4" id="test-execution-card" style="display: none;">
+    <div class="card-header bg-primary text-white">
+        <div class="d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-gear"></i> 测试执行中</span>
+            <span class="badge bg-light text-dark" id="test-elapsed-time">00:00</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span id="test-status-message">正在初始化测试环境...</span>
+                <span class="spinner-border spinner-border-sm text-primary"></span>
+            </div>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar" style="width: 100%"></div>
+            </div>
+        </div>
+        <div id="test-output-log" class="log-output" style="display: none;">
+            <!-- 实时日志输出 -->
+        </div>
+    </div>
+</div>
+
+<!-- 测试历史 -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history"></i> 测试历史</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="refreshTestHistory()">
+            <i class="bi bi-arrow-clockwise"></i> 刷新
+        </button>
+    </div>
+    <div class="card-body" id="test-history-container">
+        <div class="spinner-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let products = [];
+let currentTaskId = null;
+let testStartTime = null;
+let timerInterval = null;
+
+// 页面加载
+document.addEventListener('DOMContentLoaded', () => {
+    loadProducts();
+    loadTestHistory();
+
+    // 检查URL参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get('product_id');
+    if (productId) {
+        document.getElementById('test-scope').value = 'product';
+        updateTestScope();
+        setTimeout(() => {
+            document.getElementById('test-product').value = productId;
+        }, 500);
+    }
+});
+
+// 加载商品列表
+async function loadProducts() {
+    try {
+        const response = await fetch('/api/products/list');
+        const data = await response.json();
+        products = data.products || [];
+
+        // 填充分类选择器
+        const categories = [...new Set(products.map(p => p.category).filter(c => c))];
+        const categorySelect = document.getElementById('test-category');
+        categories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            categorySelect.appendChild(option);
+        });
+
+        // 填充商品选择器
+        const productSelect = document.getElementById('test-product');
+        products.forEach(product => {
+            const option = document.createElement('option');
+            option.value = product.id;
+            option.textContent = `${product.name} (${product.priority})`;
+            productSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('加载商品失败:', error);
+    }
+}
+
+// 更新测试范围
+function updateTestScope() {
+    const scope = document.getElementById('test-scope').value;
+
+    document.getElementById('priority-select').style.display = 'none';
+    document.getElementById('category-select').style.display = 'none';
+    document.getElementById('product-select').style.display = 'none';
+
+    if (scope === 'priority') {
+        document.getElementById('priority-select').style.display = 'block';
+    } else if (scope === 'category') {
+        document.getElementById('category-select').style.display = 'block';
+    } else if (scope === 'product') {
+        document.getElementById('product-select').style.display = 'block';
+    }
+}
+
+// 重置配置
+function resetConfig() {
+    document.getElementById('test-scope').value = 'all';
+    updateTestScope();
+}
+
+// 运行测试
+async function runTests() {
+    const scope = document.getElementById('test-scope').value;
+    const params = {};
+
+    if (scope === 'priority') {
+        params.priority = document.getElementById('test-priority').value;
+    } else if (scope === 'category') {
+        const category = document.getElementById('test-category').value;
+        if (!category) {
+            utils.showToast('请选择分类', 'warning');
+            return;
+        }
+        params.category = category;
+    } else if (scope === 'product') {
+        const productId = document.getElementById('test-product').value;
+        if (!productId) {
+            utils.showToast('请选择商品', 'warning');
+            return;
+        }
+        params.product_id = productId;
+    }
+
+    startTestExecution(params);
+}
+
+// 快速测试
+function runQuickTest(type) {
+    const params = {};
+    if (type !== 'all') {
+        params.priority = type;
+    }
+    startTestExecution(params);
+}
+
+// 开始测试执行
+async function startTestExecution(params) {
+    try {
+        const response = await fetch('/api/tests/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(params)
+        });
+
+        const data = await response.json();
+        currentTaskId = data.task_id;
+
+        // 显示执行状态卡片
+        showTestExecutionCard();
+
+        // 开始轮询状态
+        utils.pollTaskStatus(currentTaskId, updateTestStatus, onTestComplete);
+
+    } catch (error) {
+        utils.showToast('启动测试失败: ' + error.message, 'error');
+    }
+}
+
+// 显示测试执行卡片
+function showTestExecutionCard() {
+    const card = document.getElementById('test-execution-card');
+    card.style.display = 'block';
+
+    testStartTime = Date.now();
+    updateElapsedTime();
+    timerInterval = setInterval(updateElapsedTime, 1000);
+
+    // 滚动到执行卡片
+    card.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 隐藏测试执行卡片
+function hideTestExecutionCard() {
+    document.getElementById('test-execution-card').style.display = 'none';
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+// 更新测试状态
+function updateTestStatus(status) {
+    const message = document.getElementById('test-status-message');
+
+    if (status.status === 'running') {
+        message.textContent = '测试正在执行中...';
+    } else if (status.status === 'completed') {
+        message.textContent = '测试执行完成';
+    } else if (status.status === 'failed') {
+        message.textContent = '测试执行失败';
+    }
+}
+
+// 测试完成
+function onTestComplete(result) {
+    hideTestExecutionCard();
+
+    if (result.status === 'completed') {
+        utils.showToast('测试执行完成！', 'success');
+    } else {
+        utils.showToast('测试执行失败', 'error');
+    }
+
+    // 刷新测试历史
+    setTimeout(() => {
+        loadTestHistory();
+    }, 1000);
+}
+
+// 更新已用时间
+function updateElapsedTime() {
+    if (!testStartTime) return;
+
+    const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+
+    document.getElementById('test-elapsed-time').textContent =
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+// 加载测试历史
+async function loadTestHistory() {
+    try {
+        const response = await fetch('/api/reports/list');
+        const data = await response.json();
+        const reports = data.reports || [];
+
+        if (reports.length === 0) {
+            utils.showEmptyState('test-history-container', '暂无测试历史', 'clock-history');
+            return;
+        }
+
+        const html = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>总数</th>
+                            <th>通过</th>
+                            <th>失败</th>
+                            <th>跳过</th>
+                            <th>通过率</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${reports.map(report => {
+                            const summary = report.summary || {};
+                            const total = summary.total || 0;
+                            const passed = summary.passed || 0;
+                            const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+                            return `
+                                <tr>
+                                    <td>${utils.formatDateTime(report.timestamp)}</td>
+                                    <td><span class="badge bg-primary">${total}</span></td>
+                                    <td><span class="badge bg-success">${passed}</span></td>
+                                    <td><span class="badge bg-danger">${summary.failed || 0}</span></td>
+                                    <td><span class="badge bg-warning">${summary.skipped || 0}</span></td>
+                                    <td>
+                                        <div class="progress" style="width: 100px; height: 20px;">
+                                            <div class="progress-bar ${passRate >= 90 ? 'bg-success' : passRate >= 70 ? 'bg-warning' : 'bg-danger'}"
+                                                 role="progressbar" style="width: ${passRate}%">
+                                                ${passRate}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="/reports" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i> 查看
+                                        </a>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById('test-history-container').innerHTML = html;
+
+    } catch (error) {
+        console.error('加载测试历史失败:', error);
+        utils.showError('test-history-container', '加载测试历史失败');
+    }
+}
+
+// 刷新测试历史
+function refreshTestHistory() {
+    utils.showLoading('test-history-container');
+    loadTestHistory();
+}
+</script>
+{% endblock %}

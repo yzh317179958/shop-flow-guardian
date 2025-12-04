@@ -83,7 +83,8 @@ class ProductCrawler:
     def discover_collections(self) -> List[str]:
         """发现所有商品分类
 
-        从网站主导航或 /collections 页面提取所有商品分类链接。
+        优先从官网主页发现分类，失败时尝试 /collections 页面。
+        会自动去除重复分类。
 
         Returns:
             分类 URL 列表，例如：['/collections/bikes', '/collections/accessories']
@@ -91,58 +92,156 @@ class ProductCrawler:
         Raises:
             requests.RequestException: 网络请求失败
         """
-        collections_url = f"{self.base_url}/collections"
-        logger.info(f"Discovering collections from {collections_url}")
+        collection_links = set()
 
+        # 策略1: 从主页发现分类（优先）
         try:
-            response = self.session.get(collections_url, timeout=self.timeout)
-            response.raise_for_status()
+            logger.info(f"Discovering collections from homepage: {self.base_url}")
+            homepage_collections = self._discover_collections_from_page(self.base_url)
+            collection_links.update(homepage_collections)
+            logger.info(f"Found {len(homepage_collections)} collections from homepage")
+        except Exception as e:
+            logger.warning(f"Failed to discover from homepage: {e}")
 
-            soup = BeautifulSoup(response.text, 'html.parser')
-            collection_links = set()
+        # 策略2: 从 /collections 页面发现（补充）
+        try:
+            collections_url = f"{self.base_url}/collections"
+            logger.info(f"Discovering collections from: {collections_url}")
+            collections_page = self._discover_collections_from_page(collections_url)
+            collection_links.update(collections_page)
+            logger.info(f"Found {len(collections_page)} collections from /collections page")
+        except Exception as e:
+            logger.warning(f"Failed to discover from /collections page: {e}")
 
-            # 策略1: 查找包含 /collections/ 的链接
-            for link in soup.find_all('a', href=True):
-                href = link['href']
-                if '/collections/' in href and href != '/collections' and href != '/collections/':
-                    # 标准化 URL
-                    if href.startswith('http'):
-                        # 绝对 URL，提取路径部分
-                        if self.base_url in href:
-                            href = href.split(self.base_url)[1]
-                        else:
-                            continue
-                    elif not href.startswith('/'):
-                        # 相对路径，添加前导斜杠
-                        href = '/' + href
+        if not collection_links:
+            logger.error("No collections found! Please check the website structure.")
+            raise ValueError("No collections found")
 
-                    # 移除查询参数和锚点
-                    href = href.split('?')[0].split('#')[0]
+        result = sorted(list(collection_links))
+        logger.info(f"📊 Total unique collections discovered: {len(result)}")
+        logger.info(f"Collections: {result}")
+        return result
+
+    def _discover_collections_from_page(self, url: str) -> set:
+        """从指定页面发现商品分类链接
+
+        Args:
+            url: 要扫描的页面URL
+
+        Returns:
+            分类URL集合
+        """
+        response = self.session.get(url, timeout=self.timeout)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        collection_links = set()
+
+        # 策略1: 查找包含 /collections/ 的所有链接
+        for link in soup.find_all('a', href=True):
+            href = link['href']
+            if '/collections/' in href and href != '/collections' and href != '/collections/':
+                # 标准化 URL
+                if href.startswith('http'):
+                    # 绝对 URL，提取路径部分
+                    if self.base_url in href:
+                        href = href.split(self.base_url)[1]
+                    else:
+                        continue
+                elif not href.startswith('/'):
+                    # 相对路径，添加前导斜杠
+                    href = '/' + href
+
+                # 移除查询参数和锚点
+                href = href.split('?')[0].split('#')[0]
+
+                # 过滤掉无效的路径
+                if self._is_valid_collection_path(href):
                     collection_links.add(href)
 
-            # 策略2: 查找特定类名的导航元素（Shopify 常见模式）
-            nav_selectors = [
-                '.site-nav a[href*="/collections/"]',
-                '.menu a[href*="/collections/"]',
-                '.navigation a[href*="/collections/"]',
-                'nav a[href*="/collections/"]'
-            ]
+        # 策略2: 查找导航菜单中的分类链接（Shopify 常见模式）
+        nav_selectors = [
+            '.site-nav a[href*="/collections/"]',
+            '.menu a[href*="/collections/"]',
+            '.navigation a[href*="/collections/"]',
+            'nav a[href*="/collections/"]',
+            'header a[href*="/collections/"]',
+            '.header a[href*="/collections/"]'
+        ]
 
-            for selector in nav_selectors:
-                for link in soup.select(selector):
-                    href = link.get('href', '')
-                    if href and '/collections/' in href:
-                        href = href.split('?')[0].split('#')[0]
-                        if not href.startswith('http'):
-                            collection_links.add(href)
+        for selector in nav_selectors:
+            for link in soup.select(selector):
+                href = link.get('href', '')
+                if href and '/collections/' in href:
+                    href = href.split('?')[0].split('#')[0]
+                    if not href.startswith('http') and self._is_valid_collection_path(href):
+                        collection_links.add(href)
 
-            result = sorted(list(collection_links))
-            logger.info(f"Found {len(result)} collections: {result}")
-            return result
+        return collection_links
 
-        except requests.RequestException as e:
-            logger.error(f"Failed to discover collections: {e}")
-            raise
+    def _is_valid_collection_path(self, path: str) -> bool:
+        """检查是否为有效的分类路径
+
+        Args:
+            path: URL路径
+
+        Returns:
+            是否有效
+        """
+        # 排除一些已知的非分类路径
+        invalid_patterns = [
+            '/collections/all',
+            '/collections/vendors',
+            '/collections/types',
+            '/account',
+            '/cart',
+            '/checkout',
+            '/search',
+            '/pages/'
+        ]
+
+        for pattern in invalid_patterns:
+            if pattern in path:
+                return False
+
+        # 必须以 /collections/ 开头且后面有内容
+        if not path.startswith('/collections/'):
+            return False
+
+        # 提取分类名称部分
+        collection_name = path.replace('/collections/', '')
+        if not collection_name or collection_name == '':
+            return False
+
+        return True
+
+    def _format_category_name(self, category_slug: str) -> str:
+        """格式化分类名称，将URL slug转换为友好的显示名称
+
+        Args:
+            category_slug: URL中的分类名称，如 'electric-bikes'
+
+        Returns:
+            格式化后的分类名称，如 'Electric Bikes'
+        """
+        # 替换连字符为空格
+        category = category_slug.replace('-', ' ').replace('_', ' ')
+
+        # 首字母大写（Title Case）
+        category = category.title()
+
+        # 处理一些特殊的缩写词，保持大写
+        special_words = {
+            'Ebike': 'eBike',
+            'Ebikes': 'eBikes',
+            'E Bike': 'E-Bike',
+            'E Bikes': 'E-Bikes'
+        }
+
+        for old, new in special_words.items():
+            category = category.replace(old, new)
+
+        return category
 
     def discover_products(
         self,
@@ -284,8 +383,10 @@ class ProductCrawler:
                 if variant:
                     variants.append(variant)
 
-            # 提取分类名称
-            category = collection_path.split('/')[-1].replace('-', ' ').title()
+            # 提取分类名称 - 保留原始官网分类
+            # 从 collection_path 提取，例如 '/collections/electric-bikes' -> 'Electric Bikes'
+            category_slug = collection_path.split('/')[-1]
+            category = self._format_category_name(category_slug)
 
             # 提取标签
             tags = product_data.get('tags', [])
@@ -311,7 +412,9 @@ class ProductCrawler:
                     'vendor': product_data.get('vendor', ''),
                     'product_type': product_data.get('product_type', ''),
                     'handle': handle,
-                    'available': product_data.get('available', False)
+                    'available': product_data.get('available', False),
+                    'collection_path': collection_path,  # 保留原始分类路径
+                    'category_slug': category_slug  # 保留URL友好的分类名称
                 }
             )
 
