@@ -369,11 +369,11 @@ def list_products():
 def run_tests():
     """运行测试"""
     data = request.json or {}
+    test_mode = data.get('test_mode', 'quick')  # quick 或 full
 
     # 构建测试命令
     # 如果是单个商品测试，使用专用脚本
     if data.get('product_id'):
-        test_mode = data.get('test_mode', 'quick')  # quick 或 full
         command = [
             './run.sh',
             'python3',
@@ -382,15 +382,20 @@ def run_tests():
             '--mode', test_mode
         ]
     else:
-        # 使用原有的pytest测试
-        command = ['./run_tests.sh']
+        # 使用批量测试脚本
+        command = [
+            './run.sh',
+            'python3',
+            'scripts/batch_test_products.py',
+            '--mode', test_mode
+        ]
 
         # 添加过滤参数
         if data.get('priority'):
-            command.append(f"--priority={data['priority']}")
+            command.extend(['--priority', data['priority']])
 
         if data.get('category'):
-            command.append(f"--category={data['category']}")
+            command.extend(['--category', data['category']])
 
     task_id = f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
@@ -399,7 +404,7 @@ def run_tests():
         'started_at': datetime.now().isoformat(),
         'params': data,
         'test_steps': [],  # 存储测试步骤
-        'test_mode': data.get('test_mode', 'quick')  # 记录测试模式
+        'test_mode': test_mode  # 记录测试模式
     }
 
     # 后台执行

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 批量测试多个商品的快速测试脚本
+支持不同的测试模式和过滤条件
 """
 
 import asyncio
 import json
 import sys
+import argparse
 from pathlib import Path
 from datetime import datetime
 
@@ -17,16 +19,17 @@ from run_product_test import ProductTester
 from core.models import Product
 
 
-async def test_product(product_data, index, total):
+async def test_product(product_data, index, total, test_mode="quick"):
     """测试单个商品"""
     print(f"\n{'='*80}")
     print(f"[{index}/{total}] 测试商品: {product_data['name']}")
     print(f"商品ID: {product_data['id']}")
+    print(f"测试模式: {test_mode}")
     print(f"{'='*80}\n")
 
     try:
         product = Product(**product_data)
-        tester = ProductTester(product, test_mode="quick", headless=True)
+        tester = ProductTester(product, test_mode=test_mode, headless=True)
         result = await tester.run()
 
         return {
@@ -51,6 +54,18 @@ async def test_product(product_data, index, total):
 
 async def main():
     """主函数"""
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='批量测试商品')
+    parser.add_argument('--mode', choices=['quick', 'full'], default='quick',
+                        help='测试模式: quick(快速测试) 或 full(全面测试)')
+    parser.add_argument('--priority', choices=['P0', 'P1', 'P2'],
+                        help='按优先级过滤')
+    parser.add_argument('--category', type=str,
+                        help='按分类过滤')
+    parser.add_argument('--limit', type=int, default=20,
+                        help='最多测试多少个商品 (默认20)')
+    args = parser.parse_args()
+
     # 加载商品数据
     products_file = PROJECT_ROOT / "data" / "products.json"
     with open(products_file, "r", encoding="utf-8") as f:
@@ -58,31 +73,42 @@ async def main():
 
     products = data.get("products", [])
 
-    # 选择20个不同的商品进行测试
+    # 应用过滤条件
+    if args.priority:
+        products = [p for p in products if p.get('priority') == args.priority]
+        print(f"📊 按优先级过滤: {args.priority}, 找到 {len(products)} 个商品")
+
+    if args.category:
+        products = [p for p in products if p.get('category') == args.category]
+        print(f"📊 按分类过滤: {args.category}, 找到 {len(products)} 个商品")
+
+    # 选择商品进行测试
     selected_products = []
     categories_seen = set()
 
+    # 跳过带#的变体URL
+    products = [p for p in products if '#' not in p['id']]
+
     # 优先选择不同分类的商品
     for p in products:
-        if len(selected_products) >= 20:
+        if len(selected_products) >= args.limit:
             break
         cat = p.get('category', 'unknown')
-        # 跳过带#的变体URL
-        if '#' not in p['id']:
-            if cat not in categories_seen or len(selected_products) < 10:
-                selected_products.append(p)
-                categories_seen.add(cat)
+        if cat not in categories_seen or len(selected_products) < args.limit // 2:
+            selected_products.append(p)
+            categories_seen.add(cat)
 
-    # 如果不够20个,补充其他商品(也跳过#变体)
-    if len(selected_products) < 20:
+    # 如果不够限制数量,补充其他商品
+    if len(selected_products) < args.limit:
         for p in products:
-            if p not in selected_products and '#' not in p['id']:
+            if p not in selected_products:
                 selected_products.append(p)
-                if len(selected_products) >= 20:
+                if len(selected_products) >= args.limit:
                     break
 
     print("="*80)
     print(f"批量测试开始 - 共 {len(selected_products)} 个商品")
+    print(f"测试模式: {args.mode} ({'快速测试' if args.mode == 'quick' else '全面测试'})")
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*80)
 
@@ -91,7 +117,7 @@ async def main():
     start_time = datetime.now()
 
     for i, product_data in enumerate(selected_products, 1):
-        result = await test_product(product_data, i, len(selected_products))
+        result = await test_product(product_data, i, len(selected_products), test_mode=args.mode)
         results.append(result)
 
         # 简短总结
@@ -119,10 +145,13 @@ async def main():
     error_count = sum(1 for r in results if r['status'] == 'error')
 
     print(f"总商品数: {len(results)}")
-    print(f"通过: {passed_count} ({passed_count/len(results)*100:.1f}%)")
-    print(f"失败: {failed_count} ({failed_count/len(results)*100:.1f}%)")
-    print(f"异常: {error_count} ({error_count/len(results)*100:.1f}%)")
-    print(f"总耗时: {total_duration:.1f}秒 (平均 {total_duration/len(results):.1f}秒/商品)")
+    if len(results) > 0:
+        print(f"通过: {passed_count} ({passed_count/len(results)*100:.1f}%)")
+        print(f"失败: {failed_count} ({failed_count/len(results)*100:.1f}%)")
+        print(f"异常: {error_count} ({error_count/len(results)*100:.1f}%)")
+        print(f"总耗时: {total_duration:.1f}秒 (平均 {total_duration/len(results):.1f}秒/商品)")
+    else:
+        print("⚠️  没有找到符合条件的商品进行测试")
 
     # 失败商品详情
     if failed_count > 0 or error_count > 0:

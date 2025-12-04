@@ -2,6 +2,38 @@
 
 {% block title %}测试执行 - Fiido 测试工作台{% endblock %}
 
+{% block extra_css %}
+<style>
+/* 商品搜索框样式 */
+#test-product-search {
+    border: 2px solid #dee2e6;
+    transition: border-color 0.15s ease-in-out;
+}
+
+#test-product-search:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+#test-product {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 2px solid #0d6efd;
+    background-color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#test-product option {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+#test-product option:hover {
+    background-color: #e9ecef;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
@@ -14,7 +46,7 @@
 
 <!-- 测试配置 -->
 <div class="row g-4 mb-4">
-    <div class="col-lg-8">
+    <div class="col-12">
         <div class="card">
             <div class="card-header">
                 <i class="bi bi-gear"></i> 测试配置
@@ -49,53 +81,49 @@
                         </div>
 
                         <div class="col-md-6" id="product-select" style="display: none;">
-                            <label class="form-label">商品</label>
-                            <select class="form-select" id="test-product">
-                                <option value="">选择商品...</option>
-                            </select>
+                            <label class="form-label">商品 (支持搜索)</label>
+                            <div style="position: relative;">
+                                <input type="text"
+                                       class="form-control"
+                                       id="test-product-search"
+                                       placeholder="输入商品名称或ID搜索..."
+                                       autocomplete="off">
+                                <select class="form-select"
+                                        id="test-product"
+                                        size="5"
+                                        style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; margin-top: 2px;">
+                                </select>
+                            </div>
+                            <input type="hidden" id="test-product-id">
                         </div>
 
-                        <div class="col-md-6" id="test-mode-select" style="display: none;">
-                            <label class="form-label">测试模式</label>
-                            <select class="form-select" id="test-mode">
-                                <option value="quick">⚡ 快速测试 - 核心购物流程（5步）</option>
-                                <option value="full">🔍 全面测试 - 全链路场景覆盖（12步）</option>
-                            </select>
-                            <small class="text-muted">快速测试验证核心功能，全面测试覆盖所有场景</small>
+                    </div>
+
+                    <!-- 测试模式按钮 -->
+                    <div class="mt-4">
+                        <h6 class="mb-3">选择测试模式</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-success btn-lg w-100" onclick="runTestWithMode('quick')">
+                                    <i class="bi bi-lightning-charge"></i> ⚡ 快速测试
+                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">核心购物流程（5步，15-20秒）</small>
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-primary btn-lg w-100" onclick="runTestWithMode('full')">
+                                    <i class="bi bi-search"></i> 🔍 全面测试
+                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">全链路场景覆盖（12步，40-60秒）</small>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-4">
-                        <button type="button" class="btn btn-success btn-lg" onclick="runTests()">
-                            <i class="bi bi-play-circle"></i> 运行测试
-                        </button>
-                        <button type="button" class="btn btn-outline-secondary btn-lg" onclick="resetConfig()">
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetConfig()">
                             <i class="bi bi-arrow-clockwise"></i> 重置
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-info-circle"></i> 快速测试
-            </div>
-            <div class="card-body">
-                <p class="text-muted small">快速执行常用测试场景</p>
-                <div class="d-grid gap-2">
-                    <button class="btn btn-danger" onclick="runQuickTest('P0')">
-                        <i class="bi bi-star"></i> P0 快速测试
-                    </button>
-                    <button class="btn btn-warning" onclick="runQuickTest('P1')">
-                        <i class="bi bi-star-half"></i> P1 快速测试
-                    </button>
-                    <button class="btn btn-primary" onclick="runQuickTest('all')">
-                        <i class="bi bi-grid"></i> 全量测试
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -145,20 +173,49 @@
     </div>
 </div>
 
-<!-- 测试历史 -->
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-clock-history"></i> 测试历史</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="refreshTestHistory()">
-            <i class="bi bi-arrow-clockwise"></i> 刷新
+<!-- 当前测试结果 -->
+<div class="card" id="current-test-results" style="display: none;">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-check-circle"></i> 测试完成</span>
+        <button class="btn btn-sm btn-light" onclick="clearCurrentResults()">
+            <i class="bi bi-x"></i> 清除
         </button>
     </div>
-    <div class="card-body" id="test-history-container">
-        <div class="spinner-container">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+    <div class="card-body">
+        <!-- 总体结果 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h3 class="mb-1" id="result-status-icon">✓</h3>
+                    <p class="text-muted small mb-0">状态</p>
+                    <h5 class="mb-0" id="result-status">PASSED</h5>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h3 class="mb-1">⏱️</h3>
+                    <p class="text-muted small mb-0">总耗时</p>
+                    <h5 class="mb-0" id="result-duration">0.00s</h5>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h3 class="mb-1">✓</h3>
+                    <p class="text-muted small mb-0">通过步骤</p>
+                    <h5 class="mb-0"><span id="result-passed">0</span>/<span id="result-total">0</span></h5>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center">
+                    <h3 class="mb-1">✗</h3>
+                    <p class="text-muted small mb-0">失败步骤</p>
+                    <h5 class="mb-0 text-danger" id="result-failed">0</h5>
+                </div>
             </div>
         </div>
+
+        <!-- 详细步骤 -->
+        <div id="result-steps-container"></div>
     </div>
 </div>
 {% endblock %}
@@ -173,18 +230,6 @@ let timerInterval = null;
 // 页面加载
 document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
-    loadTestHistory();
-
-    // 检查URL参数
-    const urlParams = new URLSearchParams(window.location.search);
-    const productId = urlParams.get('product_id');
-    if (productId) {
-        document.getElementById('test-scope').value = 'product';
-        updateTestScope();
-        setTimeout(() => {
-            document.getElementById('test-product').value = productId;
-        }, 500);
-    }
 });
 
 // 加载商品列表
@@ -204,17 +249,98 @@ async function loadProducts() {
             categorySelect.appendChild(option);
         });
 
-        // 填充商品选择器
-        const productSelect = document.getElementById('test-product');
-        products.forEach(product => {
-            const option = document.createElement('option');
-            option.value = product.id;
-            option.textContent = `${product.name} (${product.priority})`;
-            productSelect.appendChild(option);
-        });
+        // 设置商品搜索功能
+        setupProductSearch();
     } catch (error) {
         console.error('加载商品失败:', error);
     }
+}
+
+// 设置商品搜索功能
+function setupProductSearch() {
+    const searchInput = document.getElementById('test-product-search');
+    const productSelect = document.getElementById('test-product');
+    const productIdInput = document.getElementById('test-product-id');
+
+    // 监听搜索输入
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase().trim();
+
+        // 清空之前的选项
+        productSelect.innerHTML = '';
+
+        if (!searchTerm) {
+            productSelect.style.display = 'none';
+            productIdInput.value = '';
+            return;
+        }
+
+        // 过滤商品
+        const filteredProducts = products.filter(p => {
+            const nameMatch = p.name.toLowerCase().includes(searchTerm);
+            const idMatch = p.id.toLowerCase().includes(searchTerm);
+            return nameMatch || idMatch;
+        });
+
+        // 限制显示最多20个结果
+        const displayProducts = filteredProducts.slice(0, 20);
+
+        if (displayProducts.length > 0) {
+            displayProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.name} (${product.id})`;
+                option.dataset.name = product.name;
+                productSelect.appendChild(option);
+            });
+            productSelect.style.display = 'block';
+
+            // 如果只有一个完全匹配的结果，自动选中
+            if (displayProducts.length === 1 ||
+                displayProducts.some(p => p.id.toLowerCase() === searchTerm)) {
+                const exactMatch = displayProducts.find(p => p.id.toLowerCase() === searchTerm);
+                if (exactMatch) {
+                    productSelect.value = exactMatch.id;
+                    productIdInput.value = exactMatch.id;
+                    searchInput.value = exactMatch.name;
+                }
+            }
+        } else {
+            productSelect.style.display = 'none';
+            productIdInput.value = '';
+        }
+    });
+
+    // 监听选择列表的点击
+    productSelect.addEventListener('change', function(e) {
+        const selectedId = e.target.value;
+        const selectedProduct = products.find(p => p.id === selectedId);
+
+        if (selectedProduct) {
+            productIdInput.value = selectedId;
+            searchInput.value = selectedProduct.name;
+            productSelect.style.display = 'none';
+        }
+    });
+
+    // 点击选项时也触发选择
+    productSelect.addEventListener('click', function(e) {
+        if (productSelect.value) {
+            const selectedProduct = products.find(p => p.id === productSelect.value);
+            if (selectedProduct) {
+                productIdInput.value = selectedProduct.id;
+                searchInput.value = selectedProduct.name;
+                productSelect.style.display = 'none';
+            }
+        }
+    });
+
+    // 点击外部时隐藏下拉列表
+    document.addEventListener('click', function(e) {
+        if (e.target !== searchInput && e.target !== productSelect) {
+            productSelect.style.display = 'none';
+        }
+    });
 }
 
 // 更新测试范围
@@ -224,7 +350,6 @@ function updateTestScope() {
     document.getElementById('priority-select').style.display = 'none';
     document.getElementById('category-select').style.display = 'none';
     document.getElementById('product-select').style.display = 'none';
-    document.getElementById('test-mode-select').style.display = 'none';
 
     if (scope === 'priority') {
         document.getElementById('priority-select').style.display = 'block';
@@ -232,7 +357,6 @@ function updateTestScope() {
         document.getElementById('category-select').style.display = 'block';
     } else if (scope === 'product') {
         document.getElementById('product-select').style.display = 'block';
-        document.getElementById('test-mode-select').style.display = 'block';  // 显示测试模式选择
     }
 }
 
@@ -242,10 +366,10 @@ function resetConfig() {
     updateTestScope();
 }
 
-// 运行测试
-async function runTests() {
+// 使用指定模式运行测试
+async function runTestWithMode(mode) {
     const scope = document.getElementById('test-scope').value;
-    const params = {};
+    const params = { test_mode: mode };
 
     if (scope === 'priority') {
         params.priority = document.getElementById('test-priority').value;
@@ -257,26 +381,19 @@ async function runTests() {
         }
         params.category = category;
     } else if (scope === 'product') {
-        const productId = document.getElementById('test-product').value;
+        const productId = document.getElementById('test-product-id').value;
         if (!productId) {
-            utils.showToast('请选择商品', 'warning');
+            utils.showToast('请输入或选择商品', 'warning');
             return;
         }
         params.product_id = productId;
-        params.test_mode = document.getElementById('test-mode').value;  // 添加测试模式
     }
+    // scope === 'all' 时 params 只包含 test_mode
 
     startTestExecution(params);
 }
 
-// 快速测试
-function runQuickTest(type) {
-    const params = {};
-    if (type !== 'all') {
-        params.priority = type;
-    }
-    startTestExecution(params);
-}
+// 删除旧的runQuickTest函数
 
 // 开始测试执行
 async function startTestExecution(params) {
@@ -486,14 +603,107 @@ function onTestComplete(result) {
 
     if (result.status === 'completed') {
         utils.showToast('测试执行完成！', 'success');
+        // 显示详细结果
+        showDetailedResults(result);
     } else {
         utils.showToast('测试执行失败', 'error');
     }
+}
 
-    // 刷新测试历史
-    setTimeout(() => {
-        loadTestHistory();
-    }, 1000);
+// 显示详细测试结果
+function showDetailedResults(result) {
+    const resultsCard = document.getElementById('current-test-results');
+    resultsCard.style.display = 'block';
+
+    // 获取步骤统计
+    const steps = result.test_steps || [];
+    const passedCount = steps.filter(s => s.status === 'passed').length;
+    const failedCount = steps.filter(s => s.status === 'failed').length;
+    const totalCount = steps.length;
+
+    // 更新卡片头部状态
+    const cardHeader = resultsCard.querySelector('.card-header');
+    if (result.status === 'completed' && failedCount === 0) {
+        cardHeader.classList.remove('bg-danger');
+        cardHeader.classList.add('bg-success');
+        cardHeader.querySelector('span').innerHTML = '<i class="bi bi-check-circle"></i> 测试完成 - 全部通过';
+    } else {
+        cardHeader.classList.remove('bg-success');
+        cardHeader.classList.add('bg-danger');
+        cardHeader.querySelector('span').innerHTML = '<i class="bi bi-x-circle"></i> 测试完成 - 存在失败';
+    }
+
+    // 更新总体统计
+    document.getElementById('result-status-icon').textContent = result.status === 'completed' && failedCount === 0 ? '✓' : '✗';
+    document.getElementById('result-status').textContent = result.status === 'completed' && failedCount === 0 ? 'PASSED' : 'FAILED';
+    document.getElementById('result-status').className = result.status === 'completed' && failedCount === 0 ? 'mb-0 text-success' : 'mb-0 text-danger';
+
+    document.getElementById('result-duration').textContent = (result.result?.duration || 0).toFixed(2) + 's';
+    document.getElementById('result-passed').textContent = passedCount;
+    document.getElementById('result-total').textContent = totalCount;
+    document.getElementById('result-failed').textContent = failedCount;
+
+    // 显示详细步骤
+    const stepsContainer = document.getElementById('result-steps-container');
+    if (steps.length > 0) {
+        stepsContainer.innerHTML = '<h6 class="mb-3">详细步骤</h6>' +
+            steps.map(step => {
+                let statusIcon = '';
+                let statusClass = '';
+                let statusBadge = '';
+
+                if (step.status === 'passed') {
+                    statusIcon = '✓';
+                    statusClass = 'border-success';
+                    statusBadge = '<span class="badge bg-success">通过</span>';
+                } else if (step.status === 'failed') {
+                    statusIcon = '✗';
+                    statusClass = 'border-danger';
+                    statusBadge = '<span class="badge bg-danger">失败</span>';
+                } else if (step.status === 'skipped') {
+                    statusIcon = '⊘';
+                    statusClass = 'border-warning';
+                    statusBadge = '<span class="badge bg-warning">跳过</span>';
+                }
+
+                let durationHtml = '';
+                if (step.duration !== undefined) {
+                    durationHtml = `<span class="step-duration ms-2">⏱ ${step.duration}s</span>`;
+                }
+
+                return `
+                    <div class="card ${statusClass} mb-2">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center">
+                                        <span class="step-icon">${statusIcon}</span>
+                                        <strong>步骤 ${step.number}: ${escapeHtml(step.name)}</strong>
+                                        ${durationHtml}
+                                    </div>
+                                    ${step.description ? `<div class="step-description">📝 ${escapeHtml(step.description)}</div>` : ''}
+                                    ${step.result ? `<div class="step-result">💡 ${escapeHtml(step.result)}</div>` : ''}
+                                    ${step.error ? `<div class="step-error">⚠️ ${escapeHtml(step.error)}</div>` : ''}
+                                </div>
+                                <div>
+                                    ${statusBadge}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+    } else {
+        stepsContainer.innerHTML = '<p class="text-muted">无步骤信息</p>';
+    }
+
+    // 滚动到结果区域
+    resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// 清除当前结果
+function clearCurrentResults() {
+    document.getElementById('current-test-results').style.display = 'none';
 }
 
 // 更新已用时间
@@ -506,81 +716,6 @@ function updateElapsedTime() {
 
     document.getElementById('test-elapsed-time').textContent =
         `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-// 加载测试历史
-async function loadTestHistory() {
-    try {
-        const response = await fetch('/api/reports/list');
-        const data = await response.json();
-        const reports = data.reports || [];
-
-        if (reports.length === 0) {
-            utils.showEmptyState('test-history-container', '暂无测试历史', 'clock-history');
-            return;
-        }
-
-        const html = `
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>时间</th>
-                            <th>总数</th>
-                            <th>通过</th>
-                            <th>失败</th>
-                            <th>跳过</th>
-                            <th>通过率</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${reports.map(report => {
-                            const summary = report.summary || {};
-                            const total = summary.total || 0;
-                            const passed = summary.passed || 0;
-                            const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
-
-                            return `
-                                <tr>
-                                    <td>${utils.formatDateTime(report.timestamp)}</td>
-                                    <td><span class="badge bg-primary">${total}</span></td>
-                                    <td><span class="badge bg-success">${passed}</span></td>
-                                    <td><span class="badge bg-danger">${summary.failed || 0}</span></td>
-                                    <td><span class="badge bg-warning">${summary.skipped || 0}</span></td>
-                                    <td>
-                                        <div class="progress" style="width: 100px; height: 20px;">
-                                            <div class="progress-bar ${passRate >= 90 ? 'bg-success' : passRate >= 70 ? 'bg-warning' : 'bg-danger'}"
-                                                 role="progressbar" style="width: ${passRate}%">
-                                                ${passRate}%
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <a href="/reports" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye"></i> 查看
-                                        </a>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-
-        document.getElementById('test-history-container').innerHTML = html;
-
-    } catch (error) {
-        console.error('加载测试历史失败:', error);
-        utils.showError('test-history-container', '加载测试历史失败');
-    }
-}
-
-// 刷新测试历史
-function refreshTestHistory() {
-    utils.showLoading('test-history-container');
-    loadTestHistory();
 }
 
 // 工具函数
