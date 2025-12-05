@@ -1464,8 +1464,10 @@ function startMicroProgressAnimation() {
             const progressBar = document.getElementById('test-progress-bar');
             const progressText = document.getElementById('test-progress-text');
             if (progressBar && progressText) {
-                progressBar.style.width = currentDisplayProgress + '%';
-                progressText.textContent = Math.round(currentDisplayProgress) + '%';
+                // 🔧 修复: 进度条宽度和文字使用相同的取整值，确保同步
+                const displayValue = Math.round(currentDisplayProgress);
+                progressBar.style.width = displayValue + '%';
+                progressText.textContent = displayValue + '%';
             }
         }
     }, 50); // 每50ms微调一次（更频繁的更新实现更平滑效果）
@@ -2185,25 +2187,23 @@ function animateProgressBar() {
 
     // 计算插值步长（使用更小的步长实现更平滑效果）
     const diff = targetProgress - currentDisplayProgress;
-    // 使用更小的步长(3%)配合CSS transition实现完全平滑
-    const step = diff * 0.03;
+    // 使用更小的步长(5%)实现平滑过渡
+    const step = diff * 0.05;
 
     // 当差值足够小时，直接设置为目标值
-    if (Math.abs(diff) < 0.05) {
+    if (Math.abs(diff) < 0.1) {
         currentDisplayProgress = targetProgress;
     } else {
         currentDisplayProgress += step;
     }
 
-    // 直接设置宽度，让CSS transition处理平滑效果
-    progressBar.style.width = targetProgress + '%';
-
-    // 文字数值使用当前插值显示，避免跳动
+    // 🔧 修复: 进度条宽度和文字数值使用相同的值，确保同步
     const displayValue = Math.round(currentDisplayProgress);
+    progressBar.style.width = displayValue + '%';
     progressText.textContent = displayValue + '%';
 
-    // 如果还没到达目标，继续动画（用于文字数值的平滑更新）
-    if (Math.abs(targetProgress - currentDisplayProgress) >= 0.05) {
+    // 如果还没到达目标，继续动画
+    if (Math.abs(targetProgress - currentDisplayProgress) >= 0.1) {
         progressAnimationFrame = requestAnimationFrame(animateProgressBar);
     } else {
         progressAnimationFrame = null;
