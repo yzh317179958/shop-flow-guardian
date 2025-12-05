@@ -428,13 +428,22 @@ def list_products():
 
 @app.route('/api/tests/run', methods=['POST'])
 def run_tests():
-    """运行测试"""
+    """运行测试
+
+    支持多种测试范围：
+    - 单个商品: product_id 参数
+    - 自定义多选: product_ids 参数（数组）
+    - 按分类: category 参数
+    - 所有商品: 无特定参数（或明确的all范围）
+    """
     data = request.json or {}
     test_mode = data.get('test_mode', 'quick')  # quick 或 full
 
     # 构建测试命令
-    # 如果是单个商品测试，使用专用脚本
+    # 优先级: product_id > product_ids > category > all
+
     if data.get('product_id'):
+        # 单个商品测试
         command = [
             './run.sh',
             'python3',
@@ -442,8 +451,30 @@ def run_tests():
             '--product-id', data['product_id'],
             '--mode', test_mode
         ]
+    elif data.get('product_ids') and len(data.get('product_ids', [])) > 0:
+        # 自定义多选商品测试
+        product_ids = data['product_ids']
+
+        if len(product_ids) == 1:
+            # 只选了一个商品，使用单商品测试脚本
+            command = [
+                './run.sh',
+                'python3',
+                'scripts/run_product_test.py',
+                '--product-id', product_ids[0],
+                '--mode', test_mode
+            ]
+        else:
+            # 多个商品，使用批量测试脚本并传递商品ID列表
+            command = [
+                './run.sh',
+                'python3',
+                'scripts/batch_test_products.py',
+                '--mode', test_mode,
+                '--product-ids', ','.join(product_ids)  # 逗号分隔的商品ID列表
+            ]
     else:
-        # 使用批量测试脚本
+        # 使用批量测试脚本（按分类或所有商品）
         command = [
             './run.sh',
             'python3',

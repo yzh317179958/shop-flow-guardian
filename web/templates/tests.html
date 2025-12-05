@@ -4,32 +4,100 @@
 
 {% block extra_css %}
 <style>
-/* 商品搜索框样式 */
-#test-product-search {
-    border: 2px solid #dee2e6;
-    transition: border-color 0.15s ease-in-out;
+/* 范围选择卡片样式 */
+.custom-option-card {
+    padding: 0;
 }
-
-#test-product-search:focus {
-    border-color: #0d6efd;
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+.custom-option-card .form-check-input {
+    display: none;
 }
-
-#test-product {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 2px solid #0d6efd;
-    background-color: white;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-#test-product option {
-    padding: 8px 12px;
+.custom-option-card .scope-card {
     cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid #dee2e6;
+}
+.custom-option-card .scope-card:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.custom-option-card .form-check-input:checked + .form-check-label .scope-card {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
 }
 
-#test-product option:hover {
-    background-color: #e9ecef;
+/* 分类卡片样式 */
+.category-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 2px solid #dee2e6;
+}
+.category-card:hover {
+    border-color: #198754;
+    transform: translateY(-1px);
+}
+.category-card.selected {
+    border-color: #198754;
+    background-color: #d1e7dd;
+}
+
+/* 商品选择项样式 */
+.product-check-item {
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.15s;
+}
+.product-check-item:hover {
+    background-color: #f8f9fa;
+}
+.product-check-item .form-check-input:checked ~ .form-check-label {
+    color: #0d6efd;
+    font-weight: 500;
+}
+
+/* 已选商品标签 */
+.selected-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    margin: 2px;
+    background-color: #e7f1ff;
+    border: 1px solid #0d6efd;
+    border-radius: 16px;
+    font-size: 12px;
+}
+.selected-tag .remove-tag {
+    margin-left: 4px;
+    cursor: pointer;
+    color: #dc3545;
+}
+.selected-tag .remove-tag:hover {
+    color: #b02a37;
+}
+
+/* 搜索下拉列表样式 */
+#single-product-dropdown {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+}
+.product-dropdown-item {
+    cursor: pointer;
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    background-color: #ffffff;
+}
+.product-dropdown-item:hover {
+    background-color: #f0f7ff;
+}
+.product-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+/* 测试按钮禁用状态 */
+.test-mode-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 </style>
 {% endblock %}
@@ -48,82 +116,176 @@
 <div class="row g-4 mb-4">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <i class="bi bi-gear"></i> 测试配置
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-gear"></i> 测试配置</span>
+                <span class="badge bg-primary" id="selected-count-badge">已选择 0 个商品</span>
             </div>
             <div class="card-body">
-                <form id="test-config-form">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">测试范围</label>
-                            <select class="form-select" id="test-scope" onchange="updateTestScope()">
-                                <option value="all">所有商品</option>
-                                <option value="priority">按优先级</option>
-                                <option value="category">按分类</option>
-                                <option value="product">单个商品</option>
-                            </select>
+                <!-- 步骤1: 选择测试范围 -->
+                <div class="mb-4">
+                    <h6 class="mb-3"><span class="badge bg-secondary me-2">1</span> 选择测试范围</h6>
+                    <div class="row g-2">
+                        <div class="col-md-3 col-6">
+                            <div class="form-check custom-option-card">
+                                <input class="form-check-input" type="radio" name="test-scope" id="scope-all" value="all" checked onchange="updateTestScope()">
+                                <label class="form-check-label w-100" for="scope-all">
+                                    <div class="card h-100 text-center py-3 scope-card" data-scope="all">
+                                        <i class="bi bi-grid-3x3-gap fs-3 text-primary"></i>
+                                        <div class="mt-2 fw-bold">所有商品</div>
+                                        <small class="text-muted">测试全部商品</small>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
-
-                        <div class="col-md-6" id="priority-select" style="display: none;">
-                            <label class="form-label">优先级</label>
-                            <select class="form-select" id="test-priority">
-                                <option value="P0">P0 - 核心商品</option>
-                                <option value="P1">P1 - 重要商品</option>
-                                <option value="P2">P2 - 普通商品</option>
-                            </select>
+                        <div class="col-md-3 col-6">
+                            <div class="form-check custom-option-card">
+                                <input class="form-check-input" type="radio" name="test-scope" id="scope-category" value="category" onchange="updateTestScope()">
+                                <label class="form-check-label w-100" for="scope-category">
+                                    <div class="card h-100 text-center py-3 scope-card" data-scope="category">
+                                        <i class="bi bi-folder fs-3 text-success"></i>
+                                        <div class="mt-2 fw-bold">按分类</div>
+                                        <small class="text-muted">选择商品分类</small>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
-
-                        <div class="col-md-6" id="category-select" style="display: none;">
-                            <label class="form-label">分类</label>
-                            <select class="form-select" id="test-category">
-                                <option value="">选择分类...</option>
-                            </select>
+                        <div class="col-md-3 col-6">
+                            <div class="form-check custom-option-card">
+                                <input class="form-check-input" type="radio" name="test-scope" id="scope-custom" value="custom" onchange="updateTestScope()">
+                                <label class="form-check-label w-100" for="scope-custom">
+                                    <div class="card h-100 text-center py-3 scope-card" data-scope="custom">
+                                        <i class="bi bi-check2-square fs-3 text-warning"></i>
+                                        <div class="mt-2 fw-bold">自定义选择</div>
+                                        <small class="text-muted">手动多选商品</small>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
+                        <div class="col-md-3 col-6">
+                            <div class="form-check custom-option-card">
+                                <input class="form-check-input" type="radio" name="test-scope" id="scope-single" value="single" onchange="updateTestScope()">
+                                <label class="form-check-label w-100" for="scope-single">
+                                    <div class="card h-100 text-center py-3 scope-card" data-scope="single">
+                                        <i class="bi bi-box-seam fs-3 text-info"></i>
+                                        <div class="mt-2 fw-bold">单个商品</div>
+                                        <small class="text-muted">测试指定商品</small>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                        <div class="col-md-6" id="product-select" style="display: none;">
-                            <label class="form-label">商品 (支持搜索)</label>
-                            <div style="position: relative;">
-                                <input type="text"
-                                       class="form-control"
-                                       id="test-product-search"
-                                       placeholder="输入商品名称或ID搜索..."
-                                       autocomplete="off">
-                                <select class="form-select"
-                                        id="test-product"
-                                        size="5"
-                                        style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; margin-top: 2px;">
+                <!-- 步骤2: 详细配置（根据范围动态显示） -->
+                <div class="mb-4" id="detail-config-section">
+                    <!-- 分类选择 -->
+                    <div id="category-config" style="display: none;">
+                        <h6 class="mb-3"><span class="badge bg-secondary me-2">2</span> 选择商品分类</h6>
+                        <div class="row g-2" id="category-list">
+                            <!-- 分类列表将动态填充 -->
+                        </div>
+                    </div>
+
+                    <!-- 自定义多选商品 -->
+                    <div id="custom-config" style="display: none;">
+                        <h6 class="mb-3"><span class="badge bg-secondary me-2">2</span> 选择要测试的商品 <small class="text-muted">(支持多选)</small></h6>
+
+                        <!-- 搜索和筛选 -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="custom-search" placeholder="搜索商品名称或ID..." oninput="filterCustomProducts()">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <select class="form-select" id="custom-category-filter" onchange="filterCustomProducts()">
+                                    <option value="">所有分类</option>
                                 </select>
                             </div>
-                            <input type="hidden" id="test-product-id">
+                            <div class="col-md-2">
+                                <div class="btn-group w-100">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="selectAllVisible()">全选</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllSelected()">清空</button>
+                                </div>
+                            </div>
                         </div>
 
+                        <!-- 商品多选列表 -->
+                        <div class="border rounded p-2" style="max-height: 300px; overflow-y: auto;" id="custom-product-list">
+                            <!-- 商品列表将动态填充 -->
+                        </div>
+
+                        <!-- 已选商品标签 -->
+                        <div class="mt-2" id="selected-products-tags">
+                            <!-- 已选商品标签将动态填充 -->
+                        </div>
                     </div>
 
-                    <!-- 测试模式按钮 -->
-                    <div class="mt-4">
-                        <h6 class="mb-3">选择测试模式</h6>
+                    <!-- 单个商品选择 -->
+                    <div id="single-config" style="display: none;">
+                        <h6 class="mb-3"><span class="badge bg-secondary me-2">2</span> 选择商品</h6>
                         <div class="row g-2">
-                            <div class="col-md-6">
-                                <button type="button" class="btn btn-success btn-lg w-100" onclick="runTestWithMode('quick')">
-                                    <i class="bi bi-lightning-charge"></i> ⚡ 快速测试
-                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">核心购物流程（5步，15-20秒）</small>
-                                </button>
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="single-product-search" placeholder="输入商品名称或ID搜索..." autocomplete="off" oninput="filterSingleProducts()">
+                                </div>
+                                <!-- 搜索结果下拉 -->
+                                <div class="list-group mt-1 shadow-sm" id="single-product-dropdown" style="display: none; position: absolute; z-index: 1000; max-height: 250px; overflow-y: auto; width: calc(100% - 24px);">
+                                    <!-- 搜索结果将动态填充 -->
+                                </div>
                             </div>
-                            <div class="col-md-6">
-                                <button type="button" class="btn btn-primary btn-lg w-100" onclick="runTestWithMode('full')">
-                                    <i class="bi bi-search"></i> 🔍 全面测试
-                                    <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">全链路场景覆盖（12步，40-60秒）</small>
+                            <div class="col-md-4">
+                                <select class="form-select" id="single-category-filter" onchange="filterSingleProducts()">
+                                    <option value="">所有分类</option>
+                                </select>
+                            </div>
+                        </div>
+                        <!-- 已选商品显示 -->
+                        <div class="mt-3" id="single-selected-product" style="display: none;">
+                            <div class="alert alert-info d-flex align-items-center justify-content-between mb-0">
+                                <div>
+                                    <i class="bi bi-box-seam me-2"></i>
+                                    <strong>已选择:</strong> <span id="single-selected-name"></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSingleSelection()">
+                                    <i class="bi bi-x"></i> 取消
                                 </button>
                             </div>
                         </div>
+                        <input type="hidden" id="single-product-id">
                     </div>
+                </div>
 
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-outline-secondary" onclick="resetConfig()">
-                            <i class="bi bi-arrow-clockwise"></i> 重置
-                        </button>
+                <!-- 步骤3: 选择测试模式 -->
+                <div class="mb-3">
+                    <h6 class="mb-3"><span class="badge bg-secondary me-2" id="step3-badge">2</span> 选择测试模式</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-success btn-lg w-100 test-mode-btn" id="btn-quick-test" onclick="runTestWithMode('quick')">
+                                <i class="bi bi-lightning-charge"></i> ⚡ 快速测试
+                                <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">核心购物流程（5步，约15-20秒/商品）</small>
+                            </button>
+                        </div>
+                        <div class="col-md-6">
+                            <button type="button" class="btn btn-primary btn-lg w-100 test-mode-btn" id="btn-full-test" onclick="runTestWithMode('full')">
+                                <i class="bi bi-search"></i> 🔍 全面测试
+                                <small class="d-block mt-1" style="font-size: 0.75rem; opacity: 0.9;">全链路场景覆盖（12步，约40-60秒/商品）</small>
+                            </button>
+                        </div>
                     </div>
-                </form>
+                </div>
+
+                <!-- 操作按钮 -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetConfig()">
+                        <i class="bi bi-arrow-clockwise"></i> 重置配置
+                    </button>
+                    <div class="text-muted small" id="test-estimate">
+                        <!-- 预估测试时间将动态显示 -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -223,11 +385,15 @@
 {% block extra_js %}
 <script>
 let products = [];
+let categories = [];
+let selectedProducts = new Set(); // 用于自定义多选
+let selectedCategory = null;      // 用于分类选择
+let singleSelectedProduct = null; // 用于单个商品选择
 let currentTaskId = null;
 let testStartTime = null;
 let timerInterval = null;
 
-// 🔧 新增: 测试步骤预定义（与后端scripts/run_product_test.py保持一致）
+// 测试步骤预定义（与后端scripts/run_product_test.py保持一致）
 const QUICK_TEST_STEPS = [
     { number: 1, name: "页面访问", description: "访问商品页面并检查页面是否正常加载" },
     { number: 2, name: "商品信息显示", description: "验证商品标题、价格等核心信息是否正确显示" },
@@ -251,12 +417,19 @@ const FULL_TEST_STEPS = [
     { number: 12, name: "支付流程验证", description: "验证从购物车到支付页面的完整流程" }
 ];
 
-// 当前测试模式
 let currentTestMode = null;
 
 // 页面加载
 document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
+    // 点击外部关闭下拉框
+    document.addEventListener('click', (e) => {
+        const dropdown = document.getElementById('single-product-dropdown');
+        const searchInput = document.getElementById('single-product-search');
+        if (dropdown && !dropdown.contains(e.target) && e.target !== searchInput) {
+            dropdown.style.display = 'none';
+        }
+    });
 });
 
 // 加载商品列表
@@ -266,164 +439,428 @@ async function loadProducts() {
         const data = await response.json();
         products = data.products || [];
 
-        // 填充分类选择器
-        const categories = [...new Set(products.map(p => p.category).filter(c => c))];
-        const categorySelect = document.getElementById('test-category');
-        categories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category;
-            option.textContent = category;
-            categorySelect.appendChild(option);
-        });
+        // 提取所有分类
+        categories = [...new Set(products.map(p => p.category).filter(c => c))].sort();
 
-        // 设置商品搜索功能
-        setupProductSearch();
+        // 初始化各个配置区域
+        initCategoryList();
+        initCustomProductList();
+        initCategoryFilters();
+
+        // 更新选择计数
+        updateSelectedCount();
+        updateTestEstimate();
     } catch (error) {
         console.error('加载商品失败:', error);
+        utils.showToast('加载商品列表失败', 'error');
     }
 }
 
-// 设置商品搜索功能
-function setupProductSearch() {
-    const searchInput = document.getElementById('test-product-search');
-    const productSelect = document.getElementById('test-product');
-    const productIdInput = document.getElementById('test-product-id');
+// 初始化分类列表（用于"按分类"选择）
+function initCategoryList() {
+    const container = document.getElementById('category-list');
+    if (!container) return;
 
-    // 监听搜索输入
-    searchInput.addEventListener('input', function(e) {
-        const searchTerm = e.target.value.toLowerCase().trim();
+    container.innerHTML = categories.map(category => {
+        const count = products.filter(p => p.category === category).length;
+        return `
+            <div class="col-md-4 col-6">
+                <div class="card category-card p-3 ${selectedCategory === category ? 'selected' : ''}"
+                     onclick="toggleCategory('${escapeHtml(category)}')"
+                     data-category="${escapeHtml(category)}">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-folder2 fs-4 text-success me-2"></i>
+                        <div>
+                            <div class="fw-bold">${escapeHtml(category)}</div>
+                            <small class="text-muted">${count} 个商品</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
 
-        // 清空之前的选项
-        productSelect.innerHTML = '';
+// 切换分类选择
+function toggleCategory(category) {
+    if (selectedCategory === category) {
+        selectedCategory = null;
+    } else {
+        selectedCategory = category;
+    }
 
-        if (!searchTerm) {
-            productSelect.style.display = 'none';
-            productIdInput.value = '';
-            return;
-        }
-
-        // 过滤商品
-        const filteredProducts = products.filter(p => {
-            const nameMatch = p.name.toLowerCase().includes(searchTerm);
-            const idMatch = p.id.toLowerCase().includes(searchTerm);
-            return nameMatch || idMatch;
-        });
-
-        // 限制显示最多20个结果
-        const displayProducts = filteredProducts.slice(0, 20);
-
-        if (displayProducts.length > 0) {
-            displayProducts.forEach(product => {
-                const option = document.createElement('option');
-                option.value = product.id;
-                option.textContent = `${product.name} (${product.id})`;
-                option.dataset.name = product.name;
-                productSelect.appendChild(option);
-            });
-            productSelect.style.display = 'block';
-
-            // 如果只有一个完全匹配的结果，自动选中
-            if (displayProducts.length === 1 ||
-                displayProducts.some(p => p.id.toLowerCase() === searchTerm)) {
-                const exactMatch = displayProducts.find(p => p.id.toLowerCase() === searchTerm);
-                if (exactMatch) {
-                    productSelect.value = exactMatch.id;
-                    productIdInput.value = exactMatch.id;
-                    searchInput.value = exactMatch.name;
-                }
-            }
+    // 更新UI
+    document.querySelectorAll('.category-card').forEach(card => {
+        if (card.dataset.category === selectedCategory) {
+            card.classList.add('selected');
         } else {
-            productSelect.style.display = 'none';
-            productIdInput.value = '';
+            card.classList.remove('selected');
         }
     });
 
-    // 监听选择列表的点击
-    productSelect.addEventListener('change', function(e) {
-        const selectedId = e.target.value;
-        const selectedProduct = products.find(p => p.id === selectedId);
+    updateSelectedCount();
+    updateTestEstimate();
+}
 
-        if (selectedProduct) {
-            productIdInput.value = selectedId;
-            searchInput.value = selectedProduct.name;
-            productSelect.style.display = 'none';
-        }
+// 初始化自定义商品多选列表
+function initCustomProductList() {
+    renderCustomProductList(products);
+}
+
+// 渲染自定义商品列表
+function renderCustomProductList(filteredProducts) {
+    const container = document.getElementById('custom-product-list');
+    if (!container) return;
+
+    if (filteredProducts.length === 0) {
+        container.innerHTML = '<div class="text-center text-muted py-4">没有找到匹配的商品</div>';
+        return;
+    }
+
+    container.innerHTML = filteredProducts.map(product => `
+        <div class="form-check product-check-item" data-product-id="${product.id}" data-category="${product.category || ''}">
+            <input class="form-check-input" type="checkbox" id="product-${product.id}"
+                   ${selectedProducts.has(product.id) ? 'checked' : ''}
+                   onchange="toggleProductSelection('${product.id}')">
+            <label class="form-check-label d-flex justify-content-between w-100" for="product-${product.id}">
+                <span>
+                    <strong>${escapeHtml(product.name)}</strong>
+                    <small class="text-muted ms-2">${product.id}</small>
+                </span>
+                <span class="badge bg-secondary">${escapeHtml(product.category || '未分类')}</span>
+            </label>
+        </div>
+    `).join('');
+}
+
+// 切换商品选择状态
+function toggleProductSelection(productId) {
+    if (selectedProducts.has(productId)) {
+        selectedProducts.delete(productId);
+    } else {
+        selectedProducts.add(productId);
+    }
+    updateSelectedTags();
+    updateSelectedCount();
+    updateTestEstimate();
+}
+
+// 更新已选商品标签
+function updateSelectedTags() {
+    const container = document.getElementById('selected-products-tags');
+    if (!container) return;
+
+    if (selectedProducts.size === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    const tags = Array.from(selectedProducts).map(productId => {
+        const product = products.find(p => p.id === productId);
+        const name = product ? product.name : productId;
+        return `
+            <span class="selected-tag">
+                ${escapeHtml(name.length > 20 ? name.substring(0, 20) + '...' : name)}
+                <span class="remove-tag" onclick="toggleProductSelection('${productId}')"><i class="bi bi-x"></i></span>
+            </span>
+        `;
+    }).join('');
+
+    container.innerHTML = `<div class="mt-2"><strong>已选择 ${selectedProducts.size} 个商品:</strong></div>` + tags;
+}
+
+// 筛选自定义商品列表
+function filterCustomProducts() {
+    const searchTerm = document.getElementById('custom-search').value.toLowerCase().trim();
+    const categoryFilter = document.getElementById('custom-category-filter').value;
+
+    const filtered = products.filter(p => {
+        const matchSearch = !searchTerm ||
+            p.name.toLowerCase().includes(searchTerm) ||
+            p.id.toLowerCase().includes(searchTerm);
+        const matchCategory = !categoryFilter || p.category === categoryFilter;
+        return matchSearch && matchCategory;
     });
 
-    // 点击选项时也触发选择
-    productSelect.addEventListener('click', function(e) {
-        if (productSelect.value) {
-            const selectedProduct = products.find(p => p.id === productSelect.value);
-            if (selectedProduct) {
-                productIdInput.value = selectedProduct.id;
-                searchInput.value = selectedProduct.name;
-                productSelect.style.display = 'none';
-            }
-        }
-    });
+    renderCustomProductList(filtered);
+}
 
-    // 点击外部时隐藏下拉列表
-    document.addEventListener('click', function(e) {
-        if (e.target !== searchInput && e.target !== productSelect) {
-            productSelect.style.display = 'none';
+// 全选当前可见商品
+function selectAllVisible() {
+    const visibleItems = document.querySelectorAll('#custom-product-list .product-check-item');
+    visibleItems.forEach(item => {
+        const productId = item.dataset.productId;
+        selectedProducts.add(productId);
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.checked = true;
+    });
+    updateSelectedTags();
+    updateSelectedCount();
+    updateTestEstimate();
+}
+
+// 清空所有选择
+function clearAllSelected() {
+    selectedProducts.clear();
+    document.querySelectorAll('#custom-product-list input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    updateSelectedTags();
+    updateSelectedCount();
+    updateTestEstimate();
+}
+
+// 初始化分类筛选下拉框
+function initCategoryFilters() {
+    const filters = ['custom-category-filter', 'single-category-filter'];
+    filters.forEach(filterId => {
+        const select = document.getElementById(filterId);
+        if (select) {
+            // 清空并重新填充
+            select.innerHTML = '<option value="">所有分类</option>';
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                select.appendChild(option);
+            });
         }
     });
 }
 
-// 更新测试范围
-function updateTestScope() {
-    const scope = document.getElementById('test-scope').value;
+// 筛选单个商品列表
+function filterSingleProducts() {
+    const searchTerm = document.getElementById('single-product-search').value.toLowerCase().trim();
+    const categoryFilter = document.getElementById('single-category-filter').value;
+    const dropdown = document.getElementById('single-product-dropdown');
 
-    document.getElementById('priority-select').style.display = 'none';
-    document.getElementById('category-select').style.display = 'none';
-    document.getElementById('product-select').style.display = 'none';
-
-    if (scope === 'priority') {
-        document.getElementById('priority-select').style.display = 'block';
-    } else if (scope === 'category') {
-        document.getElementById('category-select').style.display = 'block';
-    } else if (scope === 'product') {
-        document.getElementById('product-select').style.display = 'block';
+    if (!searchTerm && !categoryFilter) {
+        dropdown.style.display = 'none';
+        return;
     }
+
+    const filtered = products.filter(p => {
+        const matchSearch = !searchTerm ||
+            p.name.toLowerCase().includes(searchTerm) ||
+            p.id.toLowerCase().includes(searchTerm);
+        const matchCategory = !categoryFilter || p.category === categoryFilter;
+        return matchSearch && matchCategory;
+    }).slice(0, 20); // 最多显示20个结果
+
+    if (filtered.length === 0) {
+        dropdown.innerHTML = '<div class="p-3 text-muted text-center">没有找到匹配的商品</div>';
+    } else {
+        dropdown.innerHTML = filtered.map(product => `
+            <div class="product-dropdown-item" onclick="selectSingleProduct('${product.id}')">
+                <div class="fw-bold">${escapeHtml(product.name)}</div>
+                <small class="text-muted">${product.id} · ${escapeHtml(product.category || '未分类')}</small>
+            </div>
+        `).join('');
+    }
+    dropdown.style.display = 'block';
+}
+
+// 选择单个商品
+function selectSingleProduct(productId) {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    singleSelectedProduct = product;
+    document.getElementById('single-product-id').value = productId;
+    document.getElementById('single-product-search').value = '';
+    document.getElementById('single-product-dropdown').style.display = 'none';
+
+    // 显示已选商品
+    document.getElementById('single-selected-name').textContent = `${product.name} (${product.id})`;
+    document.getElementById('single-selected-product').style.display = 'block';
+
+    updateSelectedCount();
+    updateTestEstimate();
+}
+
+// 清除单个商品选择
+function clearSingleSelection() {
+    singleSelectedProduct = null;
+    document.getElementById('single-product-id').value = '';
+    document.getElementById('single-product-search').value = '';
+    document.getElementById('single-selected-product').style.display = 'none';
+
+    updateSelectedCount();
+    updateTestEstimate();
+}
+
+// 更新测试范围显示
+function updateTestScope() {
+    const scope = document.querySelector('input[name="test-scope"]:checked').value;
+
+    // 隐藏所有配置区域
+    document.getElementById('category-config').style.display = 'none';
+    document.getElementById('custom-config').style.display = 'none';
+    document.getElementById('single-config').style.display = 'none';
+
+    // 更新步骤编号
+    const step3Badge = document.getElementById('step3-badge');
+
+    if (scope === 'all') {
+        step3Badge.textContent = '2';
+    } else if (scope === 'category') {
+        document.getElementById('category-config').style.display = 'block';
+        step3Badge.textContent = '3';
+    } else if (scope === 'custom') {
+        document.getElementById('custom-config').style.display = 'block';
+        step3Badge.textContent = '3';
+    } else if (scope === 'single') {
+        document.getElementById('single-config').style.display = 'block';
+        step3Badge.textContent = '3';
+    }
+
+    updateSelectedCount();
+    updateTestEstimate();
+}
+
+// 获取当前选择的商品数量
+function getSelectedProductCount() {
+    const scope = document.querySelector('input[name="test-scope"]:checked').value;
+
+    if (scope === 'all') {
+        return products.length;
+    } else if (scope === 'category') {
+        if (!selectedCategory) return 0;
+        return products.filter(p => p.category === selectedCategory).length;
+    } else if (scope === 'custom') {
+        return selectedProducts.size;
+    } else if (scope === 'single') {
+        return singleSelectedProduct ? 1 : 0;
+    }
+    return 0;
+}
+
+// 获取当前选择的商品ID列表
+function getSelectedProductIds() {
+    const scope = document.querySelector('input[name="test-scope"]:checked').value;
+
+    if (scope === 'all') {
+        return products.map(p => p.id);
+    } else if (scope === 'category') {
+        if (!selectedCategory) return [];
+        return products.filter(p => p.category === selectedCategory).map(p => p.id);
+    } else if (scope === 'custom') {
+        return Array.from(selectedProducts);
+    } else if (scope === 'single') {
+        return singleSelectedProduct ? [singleSelectedProduct.id] : [];
+    }
+    return [];
+}
+
+// 更新选择计数徽章
+function updateSelectedCount() {
+    const count = getSelectedProductCount();
+    const badge = document.getElementById('selected-count-badge');
+    if (badge) {
+        badge.textContent = `已选择 ${count} 个商品`;
+        badge.className = count > 0 ? 'badge bg-primary' : 'badge bg-secondary';
+    }
+
+    // 更新测试按钮状态
+    const btnQuick = document.getElementById('btn-quick-test');
+    const btnFull = document.getElementById('btn-full-test');
+    if (btnQuick) btnQuick.disabled = count === 0;
+    if (btnFull) btnFull.disabled = count === 0;
+}
+
+// 更新测试时间预估
+function updateTestEstimate() {
+    const count = getSelectedProductCount();
+    const estimateDiv = document.getElementById('test-estimate');
+    if (!estimateDiv) return;
+
+    if (count === 0) {
+        estimateDiv.innerHTML = '';
+        return;
+    }
+
+    const quickTime = count * 20; // 快速测试约20秒/商品
+    const fullTime = count * 50;  // 全面测试约50秒/商品
+
+    estimateDiv.innerHTML = `
+        <i class="bi bi-clock"></i>
+        预估时间: 快速 ${formatTime(quickTime)} / 全面 ${formatTime(fullTime)}
+    `;
+}
+
+// 格式化时间
+function formatTime(seconds) {
+    if (seconds < 60) return `${seconds}秒`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}分${secs}秒` : `${mins}分钟`;
 }
 
 // 重置配置
 function resetConfig() {
-    document.getElementById('test-scope').value = 'all';
+    // 重置范围选择
+    document.getElementById('scope-all').checked = true;
+
+    // 清空各种选择
+    selectedProducts.clear();
+    selectedCategory = null;
+    singleSelectedProduct = null;
+
+    // 重置UI
+    document.getElementById('custom-search').value = '';
+    document.getElementById('single-product-search').value = '';
+    document.getElementById('single-product-id').value = '';
+    document.getElementById('single-selected-product').style.display = 'none';
+
+    // 重置分类卡片
+    document.querySelectorAll('.category-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+
+    // 重置商品复选框
+    document.querySelectorAll('#custom-product-list input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+
+    // 清空已选标签
+    document.getElementById('selected-products-tags').innerHTML = '';
+
+    // 更新界面
     updateTestScope();
+    updateSelectedCount();
+    updateTestEstimate();
+
+    utils.showToast('配置已重置', 'info');
 }
 
 // 使用指定模式运行测试
 async function runTestWithMode(mode) {
-    const scope = document.getElementById('test-scope').value;
-    const params = { test_mode: mode };
+    const productIds = getSelectedProductIds();
 
-    // 🔧 新增: 记录当前测试模式，用于预显示步骤
+    if (productIds.length === 0) {
+        utils.showToast('请先选择要测试的商品', 'warning');
+        return;
+    }
+
     currentTestMode = mode;
 
-    if (scope === 'priority') {
-        params.priority = document.getElementById('test-priority').value;
-    } else if (scope === 'category') {
-        const category = document.getElementById('test-category').value;
-        if (!category) {
-            utils.showToast('请选择分类', 'warning');
-            return;
-        }
-        params.category = category;
-    } else if (scope === 'product') {
-        const productId = document.getElementById('test-product-id').value;
-        if (!productId) {
-            utils.showToast('请输入或选择商品', 'warning');
-            return;
-        }
-        params.product_id = productId;
+    const scope = document.querySelector('input[name="test-scope"]:checked').value;
+    const params = { test_mode: mode };
+
+    // 根据选择范围设置参数
+    if (scope === 'all') {
+        // 测试所有商品，不传额外参数
+    } else if (scope === 'category' && selectedCategory) {
+        params.category = selectedCategory;
+    } else if (scope === 'custom' && selectedProducts.size > 0) {
+        // 自定义多选：传递商品ID列表
+        params.product_ids = Array.from(selectedProducts);
+    } else if (scope === 'single' && singleSelectedProduct) {
+        params.product_id = singleSelectedProduct.id;
     }
-    // scope === 'all' 时 params 只包含 test_mode
 
     startTestExecution(params);
 }
-
-// 删除旧的runQuickTest函数
 
 // 开始测试执行
 async function startTestExecution(params) {
@@ -457,7 +894,7 @@ function showTestExecutionCard() {
     updateElapsedTime();
     timerInterval = setInterval(updateElapsedTime, 1000);
 
-    // 🔧 修改: 不预先显示所有步骤，只显示空的步骤容器
+    // 不预先显示所有步骤，只显示空的步骤容器
     // 步骤将在执行时逐步显示
     const container = document.getElementById('test-steps-container');
     const stepsList = document.getElementById('test-steps-list');
@@ -496,7 +933,7 @@ function updateTestStatus(status) {
         }
     }
 
-    // 🔧 改进: 只显示后端返回的已执行步骤（执行一步显示一步）
+    // 只显示后端返回的已执行步骤（执行一步显示一步）
     // 不再预显示所有步骤，提升交互感
     if (status.test_steps && status.test_steps.length > 0) {
         const predefinedSteps = currentTestMode === 'quick' ? QUICK_TEST_STEPS : FULL_TEST_STEPS;

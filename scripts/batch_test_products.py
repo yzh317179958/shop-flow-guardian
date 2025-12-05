@@ -62,8 +62,10 @@ async def main():
                         help='按优先级过滤')
     parser.add_argument('--category', type=str,
                         help='按分类过滤')
+    parser.add_argument('--product-ids', type=str,
+                        help='指定商品ID列表，逗号分隔 (自定义多选模式)')
     parser.add_argument('--limit', type=int, default=20,
-                        help='最多测试多少个商品 (默认20)')
+                        help='最多测试多少个商品 (默认20，仅在未指定product-ids时生效)')
     args = parser.parse_args()
 
     # 加载商品数据
@@ -71,40 +73,64 @@ async def main():
     with open(products_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    products = data.get("products", [])
+    all_products = data.get("products", [])
+    products_dict = {p['id']: p for p in all_products}  # 用于快速查找
 
-    # 应用过滤条件
-    if args.priority:
-        products = [p for p in products if p.get('priority') == args.priority]
-        print(f"📊 按优先级过滤: {args.priority}, 找到 {len(products)} 个商品")
+    # 判断测试模式：自定义多选 vs 过滤模式
+    if args.product_ids:
+        # 自定义多选模式：精确匹配指定的商品ID
+        product_ids = [pid.strip() for pid in args.product_ids.split(',') if pid.strip()]
+        print(f"📋 自定义多选模式: 指定了 {len(product_ids)} 个商品ID")
 
-    if args.category:
-        products = [p for p in products if p.get('category') == args.category]
-        print(f"📊 按分类过滤: {args.category}, 找到 {len(products)} 个商品")
+        selected_products = []
+        missing_ids = []
 
-    # 选择商品进行测试
-    selected_products = []
-    categories_seen = set()
+        for pid in product_ids:
+            if pid in products_dict:
+                selected_products.append(products_dict[pid])
+            else:
+                missing_ids.append(pid)
 
-    # 跳过带#的变体URL
-    products = [p for p in products if '#' not in p['id']]
+        if missing_ids:
+            print(f"⚠️  以下商品ID未找到: {', '.join(missing_ids)}")
 
-    # 优先选择不同分类的商品
-    for p in products:
-        if len(selected_products) >= args.limit:
-            break
-        cat = p.get('category', 'unknown')
-        if cat not in categories_seen or len(selected_products) < args.limit // 2:
-            selected_products.append(p)
-            categories_seen.add(cat)
+        print(f"✓ 找到 {len(selected_products)} 个商品，准备测试")
+    else:
+        # 过滤模式：按优先级/分类过滤
+        products = all_products.copy()
 
-    # 如果不够限制数量,补充其他商品
-    if len(selected_products) < args.limit:
+        # 应用过滤条件
+        if args.priority:
+            products = [p for p in products if p.get('priority') == args.priority]
+            print(f"📊 按优先级过滤: {args.priority}, 找到 {len(products)} 个商品")
+
+        if args.category:
+            products = [p for p in products if p.get('category') == args.category]
+            print(f"📊 按分类过滤: {args.category}, 找到 {len(products)} 个商品")
+
+        # 选择商品进行测试
+        selected_products = []
+        categories_seen = set()
+
+        # 跳过带#的变体URL
+        products = [p for p in products if '#' not in p['id']]
+
+        # 优先选择不同分类的商品
         for p in products:
-            if p not in selected_products:
+            if len(selected_products) >= args.limit:
+                break
+            cat = p.get('category', 'unknown')
+            if cat not in categories_seen or len(selected_products) < args.limit // 2:
                 selected_products.append(p)
-                if len(selected_products) >= args.limit:
-                    break
+                categories_seen.add(cat)
+
+        # 如果不够限制数量,补充其他商品
+        if len(selected_products) < args.limit:
+            for p in products:
+                if p not in selected_products:
+                    selected_products.append(p)
+                    if len(selected_products) >= args.limit:
+                        break
 
     print("="*80)
     print(f"批量测试开始 - 共 {len(selected_products)} 个商品")
