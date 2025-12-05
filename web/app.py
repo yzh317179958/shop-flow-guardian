@@ -34,6 +34,48 @@ REPORTS_DIR.mkdir(exist_ok=True)
 # 当前运行的任务
 running_tasks = {}
 
+# 当前活跃的测试任务ID（每次只能运行一个测试）
+active_test_task_id = None
+
+
+def stop_task(task_id):
+    """停止指定任务
+
+    Args:
+        task_id: 任务ID
+
+    Returns:
+        是否成功停止
+    """
+    global active_test_task_id
+
+    if task_id not in running_tasks:
+        return False
+
+    task = running_tasks[task_id]
+
+    # 标记任务为停止状态
+    task['status'] = 'stopped'
+    task['stopped_at'] = datetime.now().isoformat()
+    task['stopped_by_user'] = True
+
+    # 如果有进程，尝试终止
+    if 'process' in task and task['process'] is not None:
+        try:
+            task['process'].terminate()
+            task['process'].wait(timeout=5)
+        except Exception:
+            try:
+                task['process'].kill()
+            except Exception:
+                pass
+
+    # 清除活跃任务标记
+    if active_test_task_id == task_id:
+        active_test_task_id = None
+
+    return True
+
 
 def run_command(command, task_id=None):
     """
@@ -60,7 +102,7 @@ def run_command(command, task_id=None):
         stdout_lines = []
         stderr_lines = []
 
-        # 如果有task_id，初始化日志存储
+        # 如果有task_id，初始化日志存储并保存进程引用
         if task_id:
             running_tasks[task_id]['logs'] = []
             running_tasks[task_id]['progress'] = {
@@ -68,6 +110,7 @@ def run_command(command, task_id=None):
                 'total': 0,
                 'message': '正在初始化...'
             }
+            running_tasks[task_id]['process'] = process  # 保存进程引用
 
         # 实时读取输出
         import select
@@ -77,6 +120,15 @@ def run_command(command, task_id=None):
         start_time = time.time()
 
         while True:
+            # 检查任务是否被用户停止
+            if task_id and running_tasks.get(task_id, {}).get('status') == 'stopped':
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                return {'success': False, 'stopped': True, 'error': '测试被用户停止'}
+
             # 检查超时
             if time.time() - start_time > timeout:
                 process.kill()
@@ -158,47 +210,79 @@ def parse_progress_line(line, task_id):
     """
     import re
 
+    # 解析多商品测试开始: [1/10] 测试商品: xxx
+    match = re.search(r'\[(\d+)/(\d+)\]\s+测试商品:\s+(.+)', line)
+    if match:
+        current = int(match.group(1))
+        total = int(match.group(2))
+        product_name = match.group(3).strip()
+
+        # 更新进度
+        running_tasks[task_id]['progress'] = {
+            'current': current,
+            'total': total,
+            'message': f'正在测试第 {current}/{total} 个商品: {product_name}'
+        }
+
+        # 初始化商品结果分组
+        if 'product_results' not in running_tasks[task_id]:
+            running_tasks[task_id]['product_results'] = {}
+
+        # 设置当前正在测试的商品
+        running_tasks[task_id]['current_product'] = {
+            'index': current,
+            'name': product_name,
+            'steps': []
+        }
+        return
+
+    # 解析商品ID: 商品ID: xxx
+    match = re.search(r'商品ID:\s*(\S+)', line)
+    if match:
+        product_id = match.group(1).strip()
+        if 'current_product' in running_tasks[task_id]:
+            running_tasks[task_id]['current_product']['id'] = product_id
+        return
+
     # 解析测试步骤: [步骤 1] 页面访问
     match = re.search(r'\[步骤\s+(\d+)\]\s+(.+)', line)
     if match:
         step_number = int(match.group(1))
         step_name = match.group(2).strip()
 
-        # 记录测试步骤
-        if 'test_steps' not in running_tasks[task_id]:
-            running_tasks[task_id]['test_steps'] = []
+        # 创建步骤对象
+        step = {
+            'number': step_number,
+            'name': step_name,
+            'status': 'running'
+        }
 
-        # 检查是否已存在该步骤
-        existing_step = None
-        for step in running_tasks[task_id]['test_steps']:
-            if step['number'] == step_number:
-                existing_step = step
-                break
-
-        if not existing_step:
-            running_tasks[task_id]['test_steps'].append({
-                'number': step_number,
-                'name': step_name,
-                'status': 'running'
-            })
+        # 如果在多商品测试中，添加到当前商品的步骤
+        if 'current_product' in running_tasks[task_id]:
+            running_tasks[task_id]['current_product']['steps'].append(step)
+        else:
+            # 单商品测试，添加到全局步骤
+            if 'test_steps' not in running_tasks[task_id]:
+                running_tasks[task_id]['test_steps'] = []
+            running_tasks[task_id]['test_steps'].append(step)
         return
 
     # 解析步骤说明
     match = re.search(r'说明:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         description = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             steps[-1]['description'] = description
         return
 
     # 解析步骤结果: ✓ 结果: xxx
     match = re.search(r'[✓✗⊘]\s*结果:\s*(.+?)(?:\s*\(耗时:\s*([\d.]+)s\))?$', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         result = match.group(1).strip()
         duration = match.group(2)
 
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             step = steps[-1]
             step['result'] = result
@@ -216,19 +300,24 @@ def parse_progress_line(line, task_id):
 
     # 解析错误信息
     match = re.search(r'错误:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         error = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             steps[-1]['error'] = error
+        return
+
+    # 解析测试完成标记（用于保存商品测试结果）
+    if '测试完成' in line and '总耗时' in line:
+        _save_product_result(task_id)
         return
 
     # 🔧 新增: 解析问题详情 (📋 问题详情 后面的各行)
     # 解析场景
     match = re.search(r'场景:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         scenario = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             if 'issue_details' not in steps[-1]:
                 steps[-1]['issue_details'] = {}
@@ -237,9 +326,9 @@ def parse_progress_line(line, task_id):
 
     # 解析操作
     match = re.search(r'操作:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         operation = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             if 'issue_details' not in steps[-1]:
                 steps[-1]['issue_details'] = {}
@@ -248,9 +337,9 @@ def parse_progress_line(line, task_id):
 
     # 解析问题
     match = re.search(r'问题:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         problem = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             if 'issue_details' not in steps[-1]:
                 steps[-1]['issue_details'] = {}
@@ -259,9 +348,9 @@ def parse_progress_line(line, task_id):
 
     # 解析根因
     match = re.search(r'根因:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         root_cause = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             if 'issue_details' not in steps[-1]:
                 steps[-1]['issue_details'] = {}
@@ -270,9 +359,9 @@ def parse_progress_line(line, task_id):
 
     # 解析JS错误
     match = re.search(r'JS错误:\s*(.+)', line)
-    if match and 'test_steps' in running_tasks[task_id]:
+    if match:
         js_error = match.group(1).strip()
-        steps = running_tasks[task_id]['test_steps']
+        steps = _get_current_steps(task_id)
         if steps:
             if 'issue_details' not in steps[-1]:
                 steps[-1]['issue_details'] = {}
@@ -342,6 +431,38 @@ def parse_progress_line(line, task_id):
             if 'stats' not in running_tasks[task_id]:
                 running_tasks[task_id]['stats'] = {}
             running_tasks[task_id]['stats']['duration'] = float(match.group(1))
+
+
+def _get_current_steps(task_id):
+    """获取当前活跃的步骤列表（多商品时为当前商品的步骤，单商品时为全局步骤）"""
+    if 'current_product' in running_tasks[task_id]:
+        return running_tasks[task_id]['current_product'].get('steps', [])
+    return running_tasks[task_id].get('test_steps', [])
+
+
+def _save_product_result(task_id):
+    """保存当前商品的测试结果到product_results"""
+    if 'current_product' not in running_tasks[task_id]:
+        return
+
+    current = running_tasks[task_id]['current_product']
+    product_id = current.get('id', f"product_{current.get('index', 0)}")
+
+    # 保存到product_results
+    if 'product_results' not in running_tasks[task_id]:
+        running_tasks[task_id]['product_results'] = {}
+
+    running_tasks[task_id]['product_results'][product_id] = {
+        'name': current.get('name', ''),
+        'index': current.get('index', 0),
+        'steps': current.get('steps', []),
+        'status': 'passed' if all(s.get('status') == 'passed' for s in current.get('steps', [])) else 'failed'
+    }
+
+    # 同时更新test_steps（保持兼容性）
+    if 'test_steps' not in running_tasks[task_id]:
+        running_tasks[task_id]['test_steps'] = []
+    running_tasks[task_id]['test_steps'].extend(current.get('steps', []))
 
 
 @app.route('/')
@@ -436,8 +557,23 @@ def run_tests():
     - 按分类: category 参数
     - 所有商品: 无特定参数（或明确的all范围）
     """
+    global active_test_task_id
+
     data = request.json or {}
     test_mode = data.get('test_mode', 'quick')  # quick 或 full
+
+    # 检查是否有正在运行的测试
+    if active_test_task_id and active_test_task_id in running_tasks:
+        active_task = running_tasks[active_test_task_id]
+        if active_task.get('status') == 'running':
+            # 返回冲突信息，让前端处理
+            return jsonify({
+                'conflict': True,
+                'active_task_id': active_test_task_id,
+                'active_task_started': active_task.get('started_at'),
+                'active_task_params': active_task.get('params', {}),
+                'message': '已有测试正在运行'
+            }), 409
 
     # 构建测试命令
     # 优先级: product_id > product_ids > category > all
@@ -496,12 +632,20 @@ def run_tests():
         'started_at': datetime.now().isoformat(),
         'params': data,
         'test_steps': [],  # 存储测试步骤
-        'test_mode': test_mode  # 记录测试模式
+        'test_mode': test_mode,  # 记录测试模式
+        'product_results': {}  # 存储多商品测试结果（按商品分组）
     }
+
+    # 设置为当前活跃测试
+    active_test_task_id = task_id
 
     # 后台执行
     def run_test():
+        global active_test_task_id
         run_command(command, task_id)
+        # 测试完成后清除活跃标记
+        if active_test_task_id == task_id:
+            active_test_task_id = None
 
     thread = threading.Thread(target=run_test)
     thread.start()
@@ -516,6 +660,53 @@ def test_status(task_id):
         return jsonify({'error': 'Task not found'}), 404
 
     return jsonify(running_tasks[task_id])
+
+
+@app.route('/api/tests/stop/<task_id>', methods=['POST'])
+def stop_test(task_id):
+    """停止测试任务
+
+    Args:
+        task_id: 要停止的任务ID
+
+    Returns:
+        停止结果
+    """
+    if task_id not in running_tasks:
+        return jsonify({'error': 'Task not found'}), 404
+
+    success = stop_task(task_id)
+
+    if success:
+        return jsonify({
+            'success': True,
+            'message': '测试已停止',
+            'task_id': task_id
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': '停止测试失败'
+        }), 500
+
+
+@app.route('/api/tests/active')
+def get_active_test():
+    """获取当前活跃的测试任务"""
+    global active_test_task_id
+
+    if active_test_task_id and active_test_task_id in running_tasks:
+        task = running_tasks[active_test_task_id]
+        if task.get('status') == 'running':
+            return jsonify({
+                'has_active': True,
+                'task_id': active_test_task_id,
+                'started_at': task.get('started_at'),
+                'params': task.get('params', {}),
+                'test_mode': task.get('test_mode')
+            })
+
+    return jsonify({'has_active': False})
 
 
 @app.route('/api/reports/list')

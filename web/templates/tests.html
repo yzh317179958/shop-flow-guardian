@@ -296,7 +296,12 @@
     <div class="card-header bg-primary text-white">
         <div class="d-flex justify-content-between align-items-center">
             <span><i class="bi bi-gear"></i> 测试执行中</span>
-            <span class="badge bg-light text-dark" id="test-elapsed-time">00:00</span>
+            <div>
+                <span class="badge bg-light text-dark me-2" id="test-elapsed-time">00:00</span>
+                <button class="btn btn-sm btn-outline-light" onclick="stopCurrentTest()" title="停止测试">
+                    <i class="bi bi-stop-circle"></i> 停止
+                </button>
+            </div>
         </div>
     </div>
     <div class="card-body">
@@ -472,12 +477,11 @@ function checkUrlParams() {
             document.getElementById('scope-single').checked = true;
             updateTestScope();
 
-            // 自动选择该商品
+            // 自动选择该商品（直接显示在输入框中）
             selectSingleProduct(product.id);
-
-            utils.showToast(`已自动选择商品: ${product.name}`, 'info');
         } else {
-            utils.showToast(`未找到商品ID: ${productId}`, 'warning');
+            // 商品不存在时给予提示
+            utils.showToast(`未找到商品ID: ${productId}，请检查ID是否正确`, 'warning');
         }
     }
 }
@@ -693,12 +697,13 @@ function selectSingleProduct(productId) {
 
     singleSelectedProduct = product;
     document.getElementById('single-product-id').value = productId;
-    document.getElementById('single-product-search').value = '';
+
+    // 直接在输入框显示商品全称，无需弹出提示
+    document.getElementById('single-product-search').value = product.name;
     document.getElementById('single-product-dropdown').style.display = 'none';
 
-    // 显示已选商品
-    document.getElementById('single-selected-name').textContent = `${product.name} (${product.id})`;
-    document.getElementById('single-selected-product').style.display = 'block';
+    // 隐藏已选商品提示区域（不再需要单独显示）
+    document.getElementById('single-selected-product').style.display = 'none';
 
     updateSelectedCount();
     updateTestEstimate();
@@ -898,6 +903,13 @@ async function startTestExecution(params) {
         });
 
         const data = await response.json();
+
+        // 处理测试冲突
+        if (response.status === 409 && data.conflict) {
+            handleTestConflict(data, params);
+            return;
+        }
+
         currentTaskId = data.task_id;
 
         // 显示执行状态卡片
@@ -908,6 +920,114 @@ async function startTestExecution(params) {
 
     } catch (error) {
         utils.showToast('启动测试失败: ' + error.message, 'error');
+    }
+}
+
+// 处理测试冲突
+function handleTestConflict(conflictData, newParams) {
+    const startedAt = new Date(conflictData.active_task_started).toLocaleString('zh-CN');
+    const activeMode = conflictData.active_task_params.test_mode === 'quick' ? '快速测试' : '全面测试';
+
+    // 显示冲突对话框
+    const modalHtml = `
+        <div class="modal fade" id="conflictModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title">
+                            <i class="bi bi-exclamation-triangle"></i> 测试任务冲突
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>当前已有测试正在运行：</p>
+                        <div class="alert alert-info">
+                            <strong>任务ID:</strong> ${conflictData.active_task_id}<br>
+                            <strong>开始时间:</strong> ${startedAt}<br>
+                            <strong>测试模式:</strong> ${activeMode}
+                        </div>
+                        <p>请选择操作：</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            继续当前测试
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="stopAndStartNew('${conflictData.active_task_id}')">
+                            停止旧测试，开始新测试
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 移除旧modal
+    const oldModal = document.getElementById('conflictModal');
+    if (oldModal) oldModal.remove();
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    // 保存新测试参数
+    window.pendingTestParams = newParams;
+
+    const modal = new bootstrap.Modal(document.getElementById('conflictModal'));
+    modal.show();
+}
+
+// 停止旧测试并开始新测试
+async function stopAndStartNew(oldTaskId) {
+    // 关闭对话框
+    const modal = bootstrap.Modal.getInstance(document.getElementById('conflictModal'));
+    if (modal) modal.hide();
+
+    utils.showToast('正在停止旧测试...', 'info');
+
+    try {
+        // 停止旧测试
+        await fetch(`/api/tests/stop/${oldTaskId}`, { method: 'POST' });
+
+        // 等待一下确保停止
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 开始新测试
+        if (window.pendingTestParams) {
+            startTestExecution(window.pendingTestParams);
+            window.pendingTestParams = null;
+        }
+    } catch (error) {
+        utils.showToast('停止测试失败: ' + error.message, 'error');
+    }
+}
+
+// 手动停止当前测试
+async function stopCurrentTest() {
+    if (!currentTaskId) {
+        utils.showToast('没有正在运行的测试', 'warning');
+        return;
+    }
+
+    if (!confirm('确定要停止当前测试吗？停止后将不会生成测试报告。')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/tests/stop/${currentTaskId}`, { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            utils.showToast('测试已停止', 'info');
+            hideTestExecutionCard();
+
+            // 显示停止状态
+            const message = document.getElementById('test-status-message');
+            if (message) {
+                message.textContent = '⊘ 测试已被用户停止';
+            }
+        } else {
+            utils.showToast('停止测试失败', 'error');
+        }
+    } catch (error) {
+        utils.showToast('停止测试失败: ' + error.message, 'error');
     }
 }
 
@@ -959,9 +1079,14 @@ function updateTestStatus(status) {
         }
     }
 
-    // 只显示后端返回的已执行步骤（执行一步显示一步）
-    // 不再预显示所有步骤，提升交互感
-    if (status.test_steps && status.test_steps.length > 0) {
+    // 检查是否是多商品测试（有product_results）
+    const isMultiProduct = status.product_results && Object.keys(status.product_results).length > 0;
+
+    if (isMultiProduct) {
+        // 多商品测试：按商品分组显示
+        updateMultiProductSteps(status);
+    } else if (status.test_steps && status.test_steps.length > 0) {
+        // 单商品测试：显示步骤列表
         const predefinedSteps = currentTestMode === 'quick' ? QUICK_TEST_STEPS : FULL_TEST_STEPS;
         const totalSteps = predefinedSteps.length;
 
@@ -1008,7 +1133,122 @@ function updateTestStatus(status) {
         progressBar.classList.remove('progress-bar-animated');
         progressBar.classList.add('bg-danger');
         document.getElementById('test-spinner').style.display = 'none';
+    } else if (status.status === 'stopped') {
+        message.textContent = '⊘ 测试已停止';
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.classList.add('bg-secondary');
+        document.getElementById('test-spinner').style.display = 'none';
     }
+}
+
+// 更新多商品测试步骤显示（按商品分组）
+function updateMultiProductSteps(status) {
+    const container = document.getElementById('test-steps-container');
+    const stepsList = document.getElementById('test-steps-list');
+
+    container.style.display = 'block';
+
+    const productResults = status.product_results || {};
+    const currentProduct = status.current_product;
+
+    // 构建分组HTML
+    let html = '';
+
+    // 已完成的商品
+    Object.entries(productResults).forEach(([productId, result]) => {
+        const passedCount = result.steps.filter(s => s.status === 'passed').length;
+        const failedCount = result.steps.filter(s => s.status === 'failed').length;
+        const totalCount = result.steps.length;
+        const statusClass = failedCount > 0 ? 'border-danger' : 'border-success';
+        const statusIcon = failedCount > 0 ? '✗' : '✓';
+        const statusColor = failedCount > 0 ? 'text-danger' : 'text-success';
+
+        html += `
+            <div class="card ${statusClass} mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center"
+                     style="cursor: pointer;"
+                     data-bs-toggle="collapse"
+                     data-bs-target="#product-${productId.replace(/[^a-zA-Z0-9]/g, '_')}">
+                    <div>
+                        <span class="${statusColor} me-2">${statusIcon}</span>
+                        <strong>${escapeHtml(result.name)}</strong>
+                        <small class="text-muted ms-2">(${productId})</small>
+                    </div>
+                    <div>
+                        <span class="badge bg-success me-1">${passedCount} 通过</span>
+                        ${failedCount > 0 ? `<span class="badge bg-danger">${failedCount} 失败</span>` : ''}
+                        <i class="bi bi-chevron-down ms-2"></i>
+                    </div>
+                </div>
+                <div class="collapse" id="product-${productId.replace(/[^a-zA-Z0-9]/g, '_')}">
+                    <div class="card-body py-2">
+                        ${generateStepsHtml(result.steps)}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    // 当前正在测试的商品
+    if (currentProduct && currentProduct.name) {
+        html += `
+            <div class="card border-primary mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                    <div>
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <strong>${escapeHtml(currentProduct.name)}</strong>
+                        <small class="ms-2">(${currentProduct.id || '测试中'})</small>
+                    </div>
+                    <span class="badge bg-light text-primary">进行中</span>
+                </div>
+                <div class="card-body py-2">
+                    ${currentProduct.steps && currentProduct.steps.length > 0
+                        ? generateStepsHtml(currentProduct.steps)
+                        : '<div class="text-muted text-center py-2">正在初始化测试步骤...</div>'}
+                </div>
+            </div>
+        `;
+    }
+
+    if (!html) {
+        html = '<div class="text-muted text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>正在初始化测试...</div>';
+    }
+
+    stepsList.innerHTML = html;
+}
+
+// 生成步骤HTML（用于多商品分组）
+function generateStepsHtml(steps) {
+    if (!steps || steps.length === 0) return '<div class="text-muted">暂无步骤</div>';
+
+    return steps.map(step => {
+        let statusIcon = '', statusClass = '', statusBadge = '';
+
+        if (step.status === 'passed') {
+            statusIcon = '✓'; statusClass = 'text-success'; statusBadge = '<span class="badge bg-success">通过</span>';
+        } else if (step.status === 'failed') {
+            statusIcon = '✗'; statusClass = 'text-danger'; statusBadge = '<span class="badge bg-danger">失败</span>';
+        } else if (step.status === 'skipped') {
+            statusIcon = '⊘'; statusClass = 'text-warning'; statusBadge = '<span class="badge bg-warning">跳过</span>';
+        } else if (step.status === 'running') {
+            statusIcon = '⋯'; statusClass = 'text-primary'; statusBadge = '<span class="badge bg-primary">进行中</span>';
+        } else {
+            statusIcon = '○'; statusClass = 'text-muted'; statusBadge = '<span class="badge bg-secondary">待执行</span>';
+        }
+
+        const durationHtml = step.duration !== undefined ? `<small class="text-muted ms-2">${step.duration}s</small>` : '';
+
+        return `
+            <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                <div>
+                    <span class="${statusClass} me-2">${statusIcon}</span>
+                    <span>步骤${step.number}: ${escapeHtml(step.name)}</span>
+                    ${durationHtml}
+                </div>
+                ${statusBadge}
+            </div>
+        `;
+    }).join('');
 }
 
 // 更新测试步骤显示
