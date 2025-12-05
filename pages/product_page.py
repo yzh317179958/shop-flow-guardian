@@ -44,11 +44,37 @@ class ProductPage:
             wait_until: 等待状态 ('load', 'domcontentloaded', 'networkidle')
 
         Raises:
-            Exception: 页面导航失败
+            Exception: 页面导航失败或服务器错误
         """
         try:
             logger.info(f"Navigating to {self.product.url}")
-            await self.page.goto(str(self.product.url), wait_until=wait_until)
+            response = await self.page.goto(str(self.product.url), wait_until=wait_until)
+
+            # 🔧 新增: 检查HTTP响应状态码
+            if response:
+                status = response.status
+                if status >= 500:
+                    raise Exception(f"服务器错误: HTTP {status} - 服务器可能宕机或不可用")
+                elif status >= 400:
+                    raise Exception(f"请求错误: HTTP {status} - 页面可能不存在或无法访问")
+
+            # 🔧 新增: 检查页面是否是错误页面
+            page_content = await self.page.content()
+            error_indicators = [
+                "502 Bad Gateway",
+                "503 Service Unavailable",
+                "504 Gateway Timeout",
+                "500 Internal Server Error",
+                "Site Maintenance",
+                "Server Error",
+                "is currently unable to handle this request",
+                "Connection refused",
+                "This site can't be reached"
+            ]
+            for indicator in error_indicators:
+                if indicator.lower() in page_content.lower():
+                    raise Exception(f"服务器错误页面: 检测到 '{indicator}'")
+
             logger.debug("Page navigation completed")
         except Exception as e:
             logger.error(f"Failed to navigate to product page: {e}")

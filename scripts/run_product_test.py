@@ -422,25 +422,42 @@ class ProductTester:
             title_visible = False
             price_visible = False
             price_text = ""
+            title_text = ""
 
             # 检查标题 - 使用多个可能的选择器
+            # 🔧 修复：移除过于宽泛的 "h1" 选择器，避免匹配错误页面标题
+            # 🔧 修复：添加 Fiido 网站实际使用的 product-meta__title 选择器
             title_selectors = [
                 self.product.selectors.product_title,
+                "h1.product-meta__title",      # Fiido实际使用的标题class
+                ".product-meta__title",        # 备用（不限定h1）
                 "h1.product__title",
-                "h1",
                 ".product-title",
-                "[data-product-title]"
+                "[data-product-title]",
+                ".product-single__title",
+                "h1.product-name",
+                "h1.heading.h1",               # Fiido某些页面使用的组合class
             ]
 
             for title_selector in title_selectors:
                 try:
-                    title = await self.page.query_selector(title_selector)
-                    if title and await title.is_visible():
-                        title_text = await title.text_content()
-                        if title_text and title_text.strip():
-                            title_visible = True
-                            logger.info(f"找到标题 ({title_selector}): {title_text[:50]}")
-                            break
+                    # 🔧 修复：使用 query_selector_all 获取所有匹配元素
+                    # 因为页面可能有多个相同选择器的元素，第一个可能是隐藏的
+                    titles = await self.page.query_selector_all(title_selector)
+                    for title in titles:
+                        if title and await title.is_visible():
+                            title_text = await title.text_content()
+                            if title_text and title_text.strip():
+                                # 🔧 修复：检查标题是否是错误页面标题
+                                error_titles = ["502", "503", "504", "500", "error", "not found", "unavailable"]
+                                is_error_title = any(err in title_text.lower() for err in error_titles)
+                                if not is_error_title:
+                                    title_visible = True
+                                    title_text = title_text.strip()
+                                    logger.info(f"找到标题 ({title_selector}): {title_text[:50]}")
+                                    break
+                    if title_visible:
+                        break
                 except:
                     continue
 
@@ -487,14 +504,38 @@ class ProductTester:
                     logger.info(f"检查 {price_selector} 时出错: {e}")
                     continue
 
+            # 🔧 修复：更严格的判断逻辑
             if title_visible and price_visible:
-                step.complete("passed", f"商品标题和价格均正常显示 (价格: {price_text})")
-            elif title_visible:
-                step.complete("passed", "商品标题显示正常，但未检测到价格")
-            elif price_visible:
-                step.complete("passed", f"商品价格显示正常 (价格: {price_text})，但未检测到标题")
+                step.complete("passed", f"商品标题和价格均正常显示 (标题: {title_text[:40]}, 价格: {price_text})")
+            elif title_visible and not price_visible:
+                # 有标题但没价格 - 可能是免费商品或配件
+                step.complete("passed", f"商品标题显示正常: {title_text[:40]}（未检测到价格，可能是配件或免费商品）")
+            elif not title_visible and price_visible:
+                # 有价格但没标题 - 页面结构可能有问题
+                step.complete("failed", "商品信息显示异常：检测到价格但未找到商品标题",
+                             issue_details={
+                                 "scenario": "验证商品详情页信息显示",
+                                 "operation": "检测商品标题和价格元素",
+                                 "problem": f"检测到价格({price_text})但未找到商品标题",
+                                 "root_cause": "【页面结构异常】商品标题元素缺失或选择器不匹配。可能原因：\n"
+                                              "   • 页面未完全加载\n"
+                                              "   • 商品标题使用了非标准的CSS类\n"
+                                              "   • 页面发生了JavaScript错误",
+                                 "js_errors": self.js_errors[-5:] if self.js_errors else []
+                             })
             else:
-                step.complete("failed", "商品信息显示不完整")
+                # 标题和价格都没有 - 严重问题
+                step.complete("failed", "商品信息显示失败：未找到商品标题和价格",
+                             issue_details={
+                                 "scenario": "验证商品详情页信息显示",
+                                 "operation": "检测商品标题和价格元素",
+                                 "problem": "页面上未找到商品标题和价格信息",
+                                 "root_cause": "【页面加载失败】商品详情页核心信息缺失。可能原因：\n"
+                                              "   • 页面返回了错误页面（如502/503）\n"
+                                              "   • 商品已下架或不存在\n"
+                                              "   • 页面JavaScript执行失败导致内容未渲染",
+                                 "js_errors": self.js_errors[-5:] if self.js_errors else []
+                             })
         except Exception as e:
             step.complete("failed", "检测商品信息时出错", str(e))
 
@@ -515,7 +556,70 @@ class ProductTester:
                     await self.page.wait_for_timeout(2000)  # 等待加购动画
                     step.complete("passed", "成功点击添加购物车按钮")
                 elif is_visible:
-                    step.complete("passed", "加购按钮可见但已禁用（可能需要选择变体）")
+                    # 🔧 修复：按钮可见但禁用，尝试自动选择变体
+                    logger.info("  加购按钮被禁用，尝试自动选择变体...")
+                    variant_selected = False
+
+                    # 尝试选择第一个可用的变体（颜色/型号等）
+                    variant_selectors = [
+                        "input[type='radio'].product-form__single-selector:not(:checked)",
+                        "input[type='radio'].block-swatch__radio:not(:checked)",
+                        ".product-form__input input[type='radio']:not(:checked)"
+                    ]
+
+                    for v_selector in variant_selectors:
+                        try:
+                            unchecked_radio = await self.page.query_selector(v_selector)
+                            if unchecked_radio:
+                                radio_id = await unchecked_radio.get_attribute("id")
+                                if radio_id:
+                                    label = await self.page.query_selector(f"label[for='{radio_id}']")
+                                    if label:
+                                        await label.click(timeout=2000)
+                                        await self.page.wait_for_timeout(500)
+                                        variant_selected = True
+                                        logger.info(f"  已选择变体: {radio_id}")
+                                        break
+                        except:
+                            continue
+
+                    # 重新检查按钮状态
+                    if variant_selected:
+                        await self.page.wait_for_timeout(500)
+                        is_enabled = await button.is_enabled()
+
+                    if is_enabled:
+                        await button.click()
+                        await self.page.wait_for_timeout(2000)
+                        step.complete("passed", "自动选择变体后成功点击添加购物车按钮")
+                    else:
+                        # 检查是否是售罄状态
+                        sold_out_indicators = [
+                            "button:has-text('Sold Out')",
+                            "button:has-text('Out of Stock')",
+                            ".sold-out",
+                            "[data-sold-out='true']"
+                        ]
+                        is_sold_out = False
+                        for indicator in sold_out_indicators:
+                            if await self.page.query_selector(indicator):
+                                is_sold_out = True
+                                break
+
+                        if is_sold_out:
+                            step.complete("skipped", "商品已售罄，无法添加购物车")
+                        else:
+                            step.complete("failed", "加购按钮被禁用，尝试选择变体后仍无法启用",
+                                         issue_details={
+                                             "scenario": "用户尝试将商品添加到购物车",
+                                             "operation": "点击添加购物车按钮",
+                                             "problem": "按钮处于禁用状态，且尝试自动选择变体后仍无法启用",
+                                             "root_cause": "【加购按钮异常】按钮被禁用但非售罄状态。可能原因：\n"
+                                                          "   • 存在必选变体未被正确识别\n"
+                                                          "   • 页面JavaScript逻辑错误\n"
+                                                          "   • 按钮状态更新延迟",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
                 else:
                     step.complete("failed", "加购按钮不可见")
             else:
@@ -546,7 +650,36 @@ class ProductTester:
                         break
 
             if not cart_updated:
-                step.complete("passed", "未检测到购物车数量变化（可能需要刷新或查看购物车页面）")
+                # 🔧 修复：未检测到变化时，去购物车页面二次验证
+                logger.info("  未检测到购物车数量变化，进行二次验证...")
+                try:
+                    cart_url = "https://fiido.com/cart"
+                    await self.page.goto(cart_url, wait_until="domcontentloaded")
+                    await self.page.wait_for_timeout(2000)
+
+                    # 检查购物车是否有商品
+                    cart_items = await self.page.query_selector_all("tr.cart-item, .cart-item, [data-cart-item]")
+                    if cart_items and len(cart_items) > 0:
+                        step.complete("passed", f"二次验证通过，购物车有 {len(cart_items)} 件商品")
+                    else:
+                        # 检查是否显示"购物车为空"
+                        empty_indicators = await self.page.query_selector("text='Your cart is empty', text='购物车为空', .cart-empty, .empty-cart")
+                        if empty_indicators:
+                            step.complete("failed", "购物车验证失败：购物车为空，商品未成功加入",
+                                         issue_details={
+                                             "scenario": "用户点击添加购物车后验证购物车内容",
+                                             "operation": "检查购物车页面是否有商品",
+                                             "problem": "购物车显示为空，商品未成功加入",
+                                             "root_cause": "【加购功能异常】点击添加购物车按钮后，商品未成功加入购物车。可能原因：\n"
+                                                          "   • 加购AJAX请求失败\n"
+                                                          "   • 需要先选择必选变体\n"
+                                                          "   • 商品库存不足或已下架",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
+                        else:
+                            step.complete("failed", "购物车验证失败：无法确认商品是否加入购物车")
+                except Exception as verify_error:
+                    step.complete("failed", f"购物车二次验证失败: {str(verify_error)}")
         except Exception as e:
             step.complete("failed", "检查购物车时出错", str(e))
 
@@ -617,9 +750,47 @@ class ProductTester:
                             break
 
                     if is_empty:
-                        step.complete("passed", "购物车页面正常，但购物车为空（商品可能未成功加入）")
+                        # 🔧 修复：购物车为空说明加购失败，报告failed
+                        step.complete("failed", "支付流程验证失败：购物车为空",
+                                     issue_details={
+                                         "scenario": "验证从商品页到支付页的完整流程",
+                                         "operation": "进入购物车页面准备结账",
+                                         "problem": "购物车显示为空，无法进行结账",
+                                         "root_cause": "【购物流程中断】商品未成功加入购物车，导致无法完成支付流程。\n"
+                                                      "   可能原因：\n"
+                                                      "   • 步骤3添加购物车操作实际未成功\n"
+                                                      "   • 加购后页面跳转导致购物车状态丢失\n"
+                                                      "   • 商品变体未正确选择",
+                                         "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                     })
                     else:
-                        step.complete("passed", "成功进入购物车页面，但未找到Checkout按钮")
+                        # 🔧 修复：有商品但找不到Checkout按钮，需要进一步检查
+                        # 检查是否有禁用的Checkout按钮
+                        disabled_checkout = await self.page.query_selector("button[name='checkout'][disabled], button:has-text('Checkout')[disabled]")
+                        if disabled_checkout:
+                            step.complete("failed", "支付流程验证失败：Checkout按钮存在但被禁用",
+                                         issue_details={
+                                             "scenario": "验证购物车页面的结账功能",
+                                             "operation": "查找并点击Checkout按钮",
+                                             "problem": "Checkout按钮存在但处于禁用状态",
+                                             "root_cause": "【结账功能受限】Checkout按钮被禁用。可能原因：\n"
+                                                          "   • 购物车商品不满足最低消费\n"
+                                                          "   • 商品库存状态变化\n"
+                                                          "   • 页面JavaScript错误导致按钮状态异常",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
+                        else:
+                            step.complete("failed", "支付流程验证失败：购物车有商品但未找到Checkout按钮",
+                                         issue_details={
+                                             "scenario": "验证购物车页面的结账功能",
+                                             "operation": "查找Checkout按钮",
+                                             "problem": "购物车页面存在商品，但找不到Checkout按钮",
+                                             "root_cause": "【页面结构异常】购物车有商品但无法找到结账入口。可能原因：\n"
+                                                          "   • 页面DOM结构与预期不符\n"
+                                                          "   • Checkout按钮选择器需要更新\n"
+                                                          "   • 页面渲染不完整",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
             else:
                 step.complete("failed", f"未能进入购物车页面，当前URL: {current_url}")
 
@@ -660,29 +831,52 @@ class ProductTester:
         step = self.steps[2]
         step.start()
         try:
+            # 🔧 修复：使用与快速测试一致的选择器列表，移除过于宽泛的 "h1"
             title_selectors = [
+                "h1.product-meta__title",      # Fiido实际使用的标题class
+                ".product-meta__title",        # 备用（不限定h1）
                 "h1.product__title",
-                "h1",
                 ".product-title",
-                "[data-product-title]"
+                "[data-product-title]",
+                ".product-single__title",
+                "h1.product-name",
+                "h1.heading.h1",               # Fiido某些页面使用的组合class
             ]
 
             title_found = False
             for selector in title_selectors:
                 try:
-                    title = await self.page.query_selector(selector)
-                    if title:
-                        title_text = await title.text_content()
-                        if title_text and title_text.strip():
-                            title_found = True
-                            # 不再严格要求visible=True，因为某些网站标题元素存在但不可见
-                            step.complete("passed", f"商品标题显示正常: {title_text.strip()[:60]}")
-                            break
+                    # 🔧 修复：使用 query_selector_all 获取所有匹配元素
+                    # 因为页面可能有多个相同选择器的元素，第一个可能是隐藏的
+                    titles = await self.page.query_selector_all(selector)
+                    for title in titles:
+                        if title and await title.is_visible():
+                            title_text = await title.text_content()
+                            if title_text and title_text.strip():
+                                # 🔧 修复：检查标题是否是错误页面标题
+                                error_titles = ["502", "503", "504", "500", "error", "not found", "unavailable"]
+                                is_error_title = any(err in title_text.lower() for err in error_titles)
+                                if not is_error_title:
+                                    title_found = True
+                                    step.complete("passed", f"商品标题显示正常: {title_text.strip()[:60]}")
+                                    break
+                    if title_found:
+                        break
                 except:
                     continue
 
             if not title_found:
-                step.complete("failed", "未找到商品标题")
+                step.complete("failed", "未找到商品标题",
+                             issue_details={
+                                 "scenario": "验证商品详情页标题显示",
+                                 "operation": "检测页面中的商品标题元素",
+                                 "problem": "未找到商品标题或标题为错误页面标题",
+                                 "root_cause": "【页面结构异常】商品标题元素缺失或使用了非标准的CSS类。可能原因：\n"
+                                              "   • 页面未完全加载\n"
+                                              "   • 商品标题使用了非标准的CSS类\n"
+                                              "   • 页面返回了错误页面",
+                                 "js_errors": self.js_errors[-5:] if self.js_errors else []
+                             })
         except Exception as e:
             step.complete("failed", "验证标题时出错", str(e))
 
@@ -1070,7 +1264,36 @@ class ProductTester:
                         break
 
             if not cart_updated:
-                step.complete("passed", "未检测到购物车数量变化（需要查看购物车页面验证）")
+                # 🔧 修复：未检测到变化时，去购物车页面二次验证（与快速测试一致）
+                logger.info("  未检测到购物车数量变化，进行二次验证...")
+                try:
+                    cart_url = "https://fiido.com/cart"
+                    await self.page.goto(cart_url, wait_until="domcontentloaded")
+                    await self.page.wait_for_timeout(2000)
+
+                    # 检查购物车是否有商品
+                    cart_items = await self.page.query_selector_all("tr.cart-item, .cart-item, [data-cart-item]")
+                    if cart_items and len(cart_items) > 0:
+                        step.complete("passed", f"二次验证通过，购物车有 {len(cart_items)} 件商品")
+                    else:
+                        # 检查是否显示"购物车为空"
+                        empty_indicators = await self.page.query_selector("text='Your cart is empty', text='购物车为空', .cart-empty, .empty-cart")
+                        if empty_indicators:
+                            step.complete("failed", "购物车验证失败：购物车为空，商品未成功加入",
+                                         issue_details={
+                                             "scenario": "用户点击添加购物车后验证购物车内容",
+                                             "operation": "检查购物车页面是否有商品",
+                                             "problem": "购物车显示为空，商品未成功加入",
+                                             "root_cause": "【加购功能异常】点击添加购物车按钮后，商品未成功加入购物车。可能原因：\n"
+                                                          "   • 加购AJAX请求失败\n"
+                                                          "   • 需要先选择必选变体\n"
+                                                          "   • 商品库存不足或已下架",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
+                        else:
+                            step.complete("failed", "购物车验证失败：无法确认商品是否加入购物车")
+                except Exception as verify_error:
+                    step.complete("failed", f"购物车二次验证失败: {str(verify_error)}")
         except Exception as e:
             step.complete("failed", "检查购物车时出错", str(e))
 
@@ -1289,9 +1512,47 @@ class ProductTester:
                             break
 
                     if is_empty:
-                        step.complete("passed", "购物车页面正常，但购物车为空")
+                        # 🔧 修复：购物车为空说明加购失败，报告failed（与快速测试一致）
+                        step.complete("failed", "支付流程验证失败：购物车为空",
+                                     issue_details={
+                                         "scenario": "验证从商品页到支付页的完整流程",
+                                         "operation": "进入购物车页面准备结账",
+                                         "problem": "购物车显示为空，无法进行结账",
+                                         "root_cause": "【购物流程中断】商品未成功加入购物车，导致无法完成支付流程。\n"
+                                                      "   可能原因：\n"
+                                                      "   • 步骤9添加购物车操作实际未成功\n"
+                                                      "   • 加购后页面跳转导致购物车状态丢失\n"
+                                                      "   • 商品变体未正确选择",
+                                         "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                     })
                     else:
-                        step.complete("passed", "成功进入购物车页面，但未找到Checkout按钮")
+                        # 🔧 修复：有商品但找不到Checkout按钮，需要进一步检查（与快速测试一致）
+                        # 检查是否有禁用的Checkout按钮
+                        disabled_checkout = await self.page.query_selector("button[name='checkout'][disabled], button:has-text('Checkout')[disabled]")
+                        if disabled_checkout:
+                            step.complete("failed", "支付流程验证失败：Checkout按钮存在但被禁用",
+                                         issue_details={
+                                             "scenario": "验证购物车页面的结账功能",
+                                             "operation": "查找并点击Checkout按钮",
+                                             "problem": "Checkout按钮存在但处于禁用状态",
+                                             "root_cause": "【结账功能受限】Checkout按钮被禁用。可能原因：\n"
+                                                          "   • 购物车商品不满足最低消费\n"
+                                                          "   • 商品库存状态变化\n"
+                                                          "   • 页面JavaScript错误导致按钮状态异常",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
+                        else:
+                            step.complete("failed", "支付流程验证失败：购物车有商品但未找到Checkout按钮",
+                                         issue_details={
+                                             "scenario": "验证购物车页面的结账功能",
+                                             "operation": "查找Checkout按钮",
+                                             "problem": "购物车页面存在商品，但找不到Checkout按钮",
+                                             "root_cause": "【页面结构异常】购物车有商品但无法找到结账入口。可能原因：\n"
+                                                          "   • 页面DOM结构与预期不符\n"
+                                                          "   • Checkout按钮选择器需要更新\n"
+                                                          "   • 页面渲染不完整",
+                                             "js_errors": self.js_errors[-5:] if self.js_errors else []
+                                         })
             else:
                 step.complete("failed", f"未能进入购物车页面，当前URL: {current_url}")
 
