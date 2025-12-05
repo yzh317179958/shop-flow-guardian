@@ -251,12 +251,32 @@ class UniversalAIReportGenerator:
         self,
         report: str,
         output_path: str = "reports/latest-ai-report.md",
+        report_id: Optional[str] = None,
     ):
-        """保存报告到文件"""
+        """保存报告到文件
+
+        Args:
+            report: AI生成的报告内容
+            output_path: 输出路径
+            report_id: 原始报告ID（用于保存JSON格式）
+        """
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # 添加报告头部
+        # 如果输出路径是JSON格式（Web API调用），保存为JSON
+        if output_path.endswith('.json'):
+            json_data = {
+                'analysis': report,
+                'provider': self.provider_name,
+                'created_at': datetime.now().isoformat(),
+                'report_id': report_id,
+            }
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(json_data, f, ensure_ascii=False, indent=2)
+            print(f"✅ AI分析报告已保存: {output_file}")
+            return output_file
+
+        # 否则保存为Markdown格式
         header = f"""# Fiido E2E 测试 AI 分析报告
 
 **生成时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -295,6 +315,10 @@ def main():
         help='测试结果 JSON 文件路径'
     )
     parser.add_argument(
+        '--report-id',
+        help='报告ID (用于自动查找报告文件路径)'
+    )
+    parser.add_argument(
         '--output',
         default='reports/latest-ai-report.md',
         help='输出报告路径'
@@ -312,6 +336,15 @@ def main():
     args = parser.parse_args()
 
     try:
+        # 🔧 新增: 根据report-id自动查找报告文件
+        results_path = args.results
+        if args.report_id:
+            results_path = find_report_file(args.report_id)
+            if not results_path:
+                print(f"❌ 未找到报告ID对应的文件: {args.report_id}")
+                sys.exit(1)
+            print(f"✅ 找到报告文件: {results_path}")
+
         # 创建 AI 报告生成器
         generator = UniversalAIReportGenerator(
             provider=args.provider,
@@ -319,7 +352,7 @@ def main():
         )
 
         # 加载测试结果
-        test_results = generator.load_test_results(args.results)
+        test_results = generator.load_test_results(results_path)
 
         # 生成报告
         if args.summary_only:
@@ -332,22 +365,71 @@ def main():
             print("\n📝 正在生成完整 AI 报告...")
             report = generator.generate_report(test_results)
 
+            # 确定输出路径 - 如果有report_id,保存到对应位置
+            if args.report_id:
+                output_path = f"reports/{args.report_id}_ai_analysis.json"
+            else:
+                output_path = args.output
+
             # 保存报告
-            output_path = generator.save_report(report, args.output)
+            saved_path = generator.save_report(report, output_path, args.report_id)
 
             print("\n" + "="*60)
             print("报告预览:")
             print("="*60)
             print(report[:800] + "...\n")
-            print(f"📄 完整报告: {output_path}")
+            print(f"📄 完整报告: {saved_path}")
 
         print("\n✅ AI 报告生成完成！")
 
+    except ValueError as e:
+        # API key 未配置的错误
+        print(f"\n⚠️ 配置错误: {e}", file=sys.stderr)
+        print("\n请参考以下步骤配置 API Key:")
+        print("1. 复制 .env.example 为 .env")
+        print("2. 在 .env 中设置 DEEPSEEK_API_KEY=你的密钥")
+        print("3. 获取密钥: https://platform.deepseek.com/")
+        sys.exit(1)
     except Exception as e:
         print(f"\n❌ 错误: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+
+def find_report_file(report_id: str) -> Optional[str]:
+    """根据报告ID查找对应的报告文件
+
+    Args:
+        report_id: 报告ID (如 batch_test_20251205_091054 或 test_20251205_091054)
+
+    Returns:
+        报告文件路径，如果未找到返回None
+    """
+    reports_dir = Path(__file__).parent.parent / "reports"
+
+    # 尝试方式1: 直接作为JSON文件名
+    json_file = reports_dir / f"{report_id}.json"
+    if json_file.exists():
+        return str(json_file)
+
+    # 尝试方式2: 作为目录名，查找其中的test_results.json
+    report_dir = reports_dir / report_id
+    if report_dir.is_dir():
+        results_file = report_dir / "test_results.json"
+        if results_file.exists():
+            return str(results_file)
+
+    # 尝试方式3: 模糊匹配
+    for f in reports_dir.glob(f"*{report_id}*"):
+        if f.is_file() and f.suffix == '.json':
+            return str(f)
+        if f.is_dir():
+            results_file = f / "test_results.json"
+            if results_file.exists():
+                return str(results_file)
+
+    return None
 
 
 if __name__ == '__main__':

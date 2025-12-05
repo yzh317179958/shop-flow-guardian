@@ -2,99 +2,462 @@
 
 {% block title %}报告中心 - Fiido 测试工作台{% endblock %}
 
+{% block extra_css %}
+<style>
+/* 统计卡片样式 */
+.stat-card {
+    border: none;
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+.stat-card .stat-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.stat-card.primary .stat-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.stat-card.success .stat-icon { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.stat-card.danger .stat-icon { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); }
+.stat-card.warning .stat-icon { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.stat-card.success .stat-value {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+.stat-card.danger .stat-value {
+    background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* 报告卡片样式 */
+.report-card {
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    position: relative;
+}
+.report-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.15);
+}
+.report-card.selected {
+    border-color: #667eea;
+    background-color: #f8f9ff;
+}
+.report-card .report-checkbox {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 10;
+}
+.report-card .report-status {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+.report-card .pass-rate-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: #e9ecef;
+    overflow: hidden;
+}
+.report-card .pass-rate-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+}
+.report-card .report-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* 筛选器样式 */
+.filter-bar {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+/* 批量操作栏 */
+.batch-action-bar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 12px 20px;
+    color: white;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    animation: slideDown 0.3s ease;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.batch-action-bar.show {
+    display: flex;
+}
+.batch-action-bar .btn {
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+}
+.batch-action-bar .btn:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+/* 分页样式 */
+.pagination-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+.page-size-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 报告详情弹窗 */
+.report-detail-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px 12px 0 0;
+}
+.step-timeline {
+    position: relative;
+    padding-left: 30px;
+}
+.step-timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e9ecef;
+}
+.step-item {
+    position: relative;
+    padding: 12px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.step-item:last-child {
+    border-bottom: none;
+}
+.step-item::before {
+    content: '';
+    position: absolute;
+    left: -24px;
+    top: 18px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #e9ecef;
+}
+.step-item.passed::before { background: #28a745; }
+.step-item.failed::before { background: #dc3545; }
+.step-item.skipped::before { background: #ffc107; }
+
+/* AI分析样式 */
+.ai-analysis-card {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 12px;
+    border: none;
+}
+.ai-analysis-card .card-header {
+    background: transparent;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+.ai-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* 趋势图容器 */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* 空状态样式 */
+.empty-state-large {
+    padding: 60px 20px;
+    text-align: center;
+}
+.empty-state-large i {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 20px;
+}
+.empty-state-large h5 {
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+.empty-state-large p {
+    color: #adb5bd;
+}
+
+/* 标签页样式优化 */
+.nav-tabs-custom {
+    border: none;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 6px;
+}
+.nav-tabs-custom .nav-link {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    color: #6c757d;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+.nav-tabs-custom .nav-link:hover {
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.1);
+}
+.nav-tabs-custom .nav-link.active {
+    background: white;
+    color: #667eea;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* 加载动画 */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: 12px;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <div>
             <h2>
-                <i class="bi bi-file-earmark-text"></i> 报告中心
+                <i class="bi bi-file-earmark-bar-graph"></i> 报告中心
             </h2>
-            <p class="text-muted">查看测试报告、AI分析和趋势数据</p>
+            <p class="text-muted">查看历史测试报告、AI智能分析和数据趋势</p>
         </div>
-        <div class="action-buttons">
-            <button class="btn btn-primary" onclick="generateAIReport()">
-                <i class="bi bi-robot"></i> 生成 AI 报告
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" onclick="exportReports()">
+                <i class="bi bi-download"></i> 导出
             </button>
-            <button class="btn btn-info" onclick="analyzeTrends()">
-                <i class="bi bi-graph-up"></i> 趋势分析
+            <button class="btn btn-primary" onclick="refreshAllData()">
+                <i class="bi bi-arrow-clockwise"></i> 刷新
             </button>
         </div>
     </div>
 </div>
 
-<!-- 报告选项卡 -->
-<ul class="nav nav-tabs mb-4" id="reportTabs" role="tablist">
+<!-- 统计卡片 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card primary">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon text-white me-3">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="stat-total-reports">0</div>
+                    <div class="text-muted">历史报告</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card success">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon text-white me-3">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="stat-avg-pass-rate">0%</div>
+                    <div class="text-muted">平均通过率</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card danger">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon text-white me-3">
+                    <i class="bi bi-bug"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="stat-total-bugs">0</div>
+                    <div class="text-muted">发现问题</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card warning">
+            <div class="card-body d-flex align-items-center">
+                <div class="stat-icon text-white me-3">
+                    <i class="bi bi-robot"></i>
+                </div>
+                <div>
+                    <div class="stat-value" id="stat-ai-reports">0</div>
+                    <div class="text-muted">AI分析报告</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 标签页 -->
+<ul class="nav nav-tabs-custom mb-4" id="reportTabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="latest-tab" data-bs-toggle="tab"
-                data-bs-target="#latest" type="button">
-            <i class="bi bi-file-text"></i> 最新报告
+        <button class="nav-link active" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button">
+            <i class="bi bi-clock-history"></i> 历史报告
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="ai-tab" data-bs-toggle="tab"
-                data-bs-target="#ai" type="button">
-            <i class="bi bi-robot"></i> AI 分析
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="trends-tab" data-bs-toggle="tab"
-                data-bs-target="#trends" type="button">
+        <button class="nav-link" id="trends-tab" data-bs-toggle="tab" data-bs-target="#trends" type="button">
             <i class="bi bi-graph-up"></i> 趋势分析
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="changes-tab" data-bs-toggle="tab"
-                data-bs-target="#changes" type="button">
-            <i class="bi bi-arrow-left-right"></i> 商品变更
+        <button class="nav-link" id="ai-tab" data-bs-toggle="tab" data-bs-target="#ai" type="button">
+            <i class="bi bi-robot"></i> AI洞察
         </button>
     </li>
 </ul>
 
 <div class="tab-content" id="reportTabContent">
-    <!-- 最新报告 -->
-    <div class="tab-pane fade show active" id="latest" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>测试结果概览</span>
-                <button class="btn btn-sm btn-outline-primary" onclick="refreshLatestReport()">
-                    <i class="bi bi-arrow-clockwise"></i> 刷新
+    <!-- 历史报告 -->
+    <div class="tab-pane fade show active" id="history" role="tabpanel">
+        <!-- 筛选器 -->
+        <div class="filter-bar">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">时间范围</label>
+                    <select class="form-select" id="filter-time-range" onchange="applyFilters()">
+                        <option value="">全部时间</option>
+                        <option value="today">今天</option>
+                        <option value="week">最近7天</option>
+                        <option value="month">最近30天</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">测试模式</label>
+                    <select class="form-select" id="filter-test-mode" onchange="applyFilters()">
+                        <option value="">全部模式</option>
+                        <option value="quick">快速测试</option>
+                        <option value="full">全面测试</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">通过率</label>
+                    <select class="form-select" id="filter-pass-rate" onchange="applyFilters()">
+                        <option value="">全部</option>
+                        <option value="high">高 (>=90%)</option>
+                        <option value="medium">中 (70-90%)</option>
+                        <option value="low">低 (<70%)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">搜索</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" id="filter-search" placeholder="搜索商品名称..." oninput="applyFilters()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 批量操作栏 -->
+        <div class="batch-action-bar" id="batch-action-bar">
+            <div class="d-flex align-items-center">
+                <span class="me-3">已选择 <strong id="selected-count">0</strong> 个报告</span>
+                <button class="btn btn-sm me-2" onclick="selectAllVisible()">
+                    <i class="bi bi-check-all"></i> 全选本页
+                </button>
+                <button class="btn btn-sm me-2" onclick="selectAll()">
+                    <i class="bi bi-check2-square"></i> 全选所有
+                </button>
+                <button class="btn btn-sm" onclick="clearSelection()">
+                    <i class="bi bi-x-circle"></i> 取消选择
                 </button>
             </div>
-            <div class="card-body" id="latest-report-container">
-                <div class="spinner-container">
-                    <div class="spinner-border text-primary"></div>
-                </div>
+            <div>
+                <button class="btn btn-sm btn-danger" onclick="deleteSelected()">
+                    <i class="bi bi-trash"></i> 删除选中 (<span id="delete-count">0</span>)
+                </button>
             </div>
         </div>
 
-        <div class="card mt-4">
-            <div class="card-header">测试详情</div>
-            <div class="card-body" id="test-details-container">
-                <div class="spinner-container">
-                    <div class="spinner-border text-primary"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- AI 分析 -->
-    <div class="tab-pane fade" id="ai" role="tabpanel">
+        <!-- 报告列表 -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span>AI 智能分析报告</span>
-                <div>
-                    <select class="form-select form-select-sm d-inline-block w-auto me-2" id="ai-provider">
-                        <option value="deepseek">DeepSeek (推荐)</option>
-                        <option value="claude">Claude</option>
-                    </select>
-                    <button class="btn btn-sm btn-primary" onclick="generateAIReport()">
-                        <i class="bi bi-robot"></i> 重新生成
-                    </button>
+                <span><i class="bi bi-list-ul"></i> 报告列表</span>
+                <span class="badge bg-primary" id="report-count-badge">0 份报告</span>
+            </div>
+            <div class="card-body position-relative" id="reports-list-container">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary"></div>
+                    <p class="mt-3 text-muted">加载中...</p>
                 </div>
             </div>
-            <div class="card-body" id="ai-report-container">
-                <div class="spinner-container">
-                    <div class="spinner-border text-primary"></div>
+            <!-- 分页 -->
+            <div class="card-footer bg-white" id="pagination-container" style="display: none;">
+                <div class="pagination-container">
+                    <div class="page-size-selector">
+                        <span class="text-muted">每页显示</span>
+                        <select class="form-select form-select-sm" id="page-size" style="width: 80px;" onchange="changePageSize()">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                        </select>
+                        <span class="text-muted">条</span>
+                    </div>
+                    <nav>
+                        <ul class="pagination mb-0" id="pagination">
+                            <!-- 分页按钮将动态生成 -->
+                        </ul>
+                    </nav>
+                    <div class="text-muted small">
+                        共 <span id="total-count">0</span> 份报告
+                    </div>
                 </div>
             </div>
         </div>
@@ -102,41 +465,233 @@
 
     <!-- 趋势分析 -->
     <div class="tab-pane fade" id="trends" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>历史趋势分析</span>
-                <div>
-                    <select class="form-select form-select-sm d-inline-block w-auto me-2" id="trends-days">
-                        <option value="7">最近 7 天</option>
-                        <option value="14">最近 14 天</option>
-                        <option value="30" selected>最近 30 天</option>
-                    </select>
-                    <button class="btn btn-sm btn-primary" onclick="analyzeTrends()">
-                        <i class="bi bi-graph-up"></i> 分析
-                    </button>
+        <div class="row g-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-graph-up"></i> 通过率趋势</span>
+                        <select class="form-select form-select-sm" style="width: 120px;" id="trend-days" onchange="loadTrendChart()">
+                            <option value="7">最近7天</option>
+                            <option value="14">最近14天</option>
+                            <option value="30" selected>最近30天</option>
+                        </select>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card-body" id="trends-container">
-                <div class="spinner-container">
-                    <div class="spinner-border text-primary"></div>
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-pie-chart"></i> 测试结果分布
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="resultPieChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-bar-chart"></i> 步骤失败排行
+                    </div>
+                    <div class="card-body" id="step-failure-ranking">
+                        <div class="text-center py-3 text-muted">
+                            <i class="bi bi-hourglass-split"></i> 加载中...
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 商品变更 -->
-    <div class="tab-pane fade" id="changes" role="tabpanel">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span>商品变更检测</span>
-                <button class="btn btn-sm btn-primary" onclick="detectChanges()">
-                    <i class="bi bi-search"></i> 检测变更
+    <!-- AI洞察 -->
+    <div class="tab-pane fade" id="ai" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-list-check"></i> AI分析列表</span>
+                        <button class="btn btn-sm btn-primary" onclick="generateNewAIReport()">
+                            <i class="bi bi-plus-lg"></i> 新建
+                        </button>
+                    </div>
+                    <div class="card-body p-0" id="ai-reports-list" style="max-height: 500px; overflow-y: auto;">
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-robot" style="font-size: 2rem;"></i>
+                            <p class="mt-2">暂无AI分析报告</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="card ai-analysis-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-robot"></i> AI智能分析
+                            <span class="ai-badge ms-2">DeepSeek</span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-dark" onclick="copyAIReport()">
+                            <i class="bi bi-clipboard"></i> 复制
+                        </button>
+                    </div>
+                    <div class="card-body" id="ai-report-content" style="min-height: 400px;">
+                        <div class="text-center py-5">
+                            <i class="bi bi-robot" style="font-size: 4rem; color: #667eea;"></i>
+                            <h5 class="mt-3 text-muted">选择一份报告查看AI分析</h5>
+                            <p class="text-muted">或点击"新建"生成新的AI分析报告</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 报告详情弹窗 -->
+<div class="modal fade" id="reportDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="report-detail-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="mb-1" id="detail-title">测试报告详情</h5>
+                        <p class="mb-0 opacity-75" id="detail-time">2024-01-01 12:00:00</p>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <!-- 概览统计 -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="card bg-light border-0">
+                            <div class="card-body text-center py-3">
+                                <h4 class="mb-0 text-primary" id="detail-total">0</h4>
+                                <small class="text-muted">总测试数</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light border-0">
+                            <div class="card-body text-center py-3">
+                                <h4 class="mb-0 text-success" id="detail-passed">0</h4>
+                                <small class="text-muted">通过</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light border-0">
+                            <div class="card-body text-center py-3">
+                                <h4 class="mb-0 text-danger" id="detail-failed">0</h4>
+                                <small class="text-muted">失败</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light border-0">
+                            <div class="card-body text-center py-3">
+                                <h4 class="mb-0 text-info" id="detail-duration">0s</h4>
+                                <small class="text-muted">耗时</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 通过率 -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">通过率</span>
+                        <span class="badge bg-success" id="detail-pass-rate">0%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-success" id="detail-pass-rate-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 商品测试详情 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-list-check"></i> 商品测试详情
+                    </div>
+                    <div class="card-body p-0" id="detail-products-container">
+                        <!-- 商品列表将动态填充 -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-primary" onclick="generateAIForReport()">
+                    <i class="bi bi-robot"></i> 生成AI分析
+                </button>
+                <button type="button" class="btn btn-outline-secondary" onclick="exportSingleReport()">
+                    <i class="bi bi-download"></i> 导出
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认弹窗 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> 确认删除</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>您确定要删除选中的 <strong id="confirm-delete-count">0</strong> 份报告吗？</p>
+                <p class="text-muted small mb-0">此操作不可撤销，报告及其关联的AI分析将被永久删除。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="bi bi-trash"></i> 确认删除
                 </button>
             </div>
-            <div class="card-body" id="changes-container">
-                <div class="spinner-container">
-                    <div class="spinner-border text-primary"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 生成AI报告弹窗 -->
+<div class="modal fade" id="generateAIModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-robot"></i> 生成AI分析报告</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">选择报告</label>
+                    <select class="form-select" id="ai-report-source">
+                        <option value="latest">最新报告</option>
+                        <!-- 更多选项将动态填充 -->
+                    </select>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">AI提供商</label>
+                    <select class="form-select" id="ai-provider-select">
+                        <option value="deepseek" selected>DeepSeek (推荐)</option>
+                        <option value="claude" disabled>Claude (暂不可用)</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="ai-summary-only">
+                    <label class="form-check-label" for="ai-summary-only">
+                        仅生成摘要（更快）
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="startGenerateAI()">
+                    <i class="bi bi-robot"></i> 开始生成
+                </button>
             </div>
         </div>
     </div>
@@ -144,338 +699,1373 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// 全局变量
+let allReports = [];
+let filteredReports = [];
+let selectedReports = new Set();
+let currentPage = 1;
+let pageSize = 20;
+let currentReportId = null;
+let trendChart = null;
+let pieChart = null;
+let aiReportsList = []; // AI分析报告列表
+
 // 页面加载
-document.addEventListener('DOMContentLoaded', () => {
-    loadLatestReport();
-    loadAIReport();
-    loadTrends();
-    loadChanges();
+document.addEventListener('DOMContentLoaded', async () => {
+    // 先加载报告列表（需要等待完成）
+    await loadReports();
+    loadStatistics();
+    // 报告加载完成后再加载趋势图
+    loadTrendChart();
+    loadAIReportsList();
+
+    // 监听AI标签页切换，刷新AI报告列表
+    document.getElementById('ai-tab').addEventListener('shown.bs.tab', () => {
+        loadAIReportsList();
+    });
+
+    // 监听趋势标签页切换，重新渲染图表（解决图表在隐藏状态下初始化的问题）
+    document.getElementById('trends-tab').addEventListener('shown.bs.tab', () => {
+        loadTrendChart();
+    });
 });
 
-// 加载最新报告
-async function loadLatestReport() {
+// 加载报告列表
+async function loadReports() {
     try {
-        const response = await fetch('/api/reports/latest');
+        const response = await fetch('/api/reports/list');
+        const data = await response.json();
+
+        allReports = data.reports || [];
+        filteredReports = [...allReports];
+
+        updateStatistics();
+        renderReportsList();
+
+    } catch (error) {
+        console.error('加载报告列表失败:', error);
+        document.getElementById('reports-list-container').innerHTML = `
+            <div class="empty-state-large">
+                <i class="bi bi-exclamation-circle"></i>
+                <h5>加载失败</h5>
+                <p>无法加载报告列表，请刷新重试</p>
+            </div>
+        `;
+    }
+}
+
+// 加载统计数据
+async function loadStatistics() {
+    // 统计数据将在loadReports后更新
+}
+
+// 加载AI分析报告列表
+async function loadAIReportsList() {
+    const container = document.getElementById('ai-reports-list');
+
+    try {
+        const response = await fetch('/api/reports/ai/list');
+        const data = await response.json();
+
+        aiReportsList = data.ai_reports || [];
+
+        // 更新统计数字
+        document.getElementById('stat-ai-reports').textContent = aiReportsList.length;
+
+        // 检查AI配置状态
+        await checkAIConfigStatus();
+
+        if (aiReportsList.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-robot" style="font-size: 2rem;"></i>
+                    <p class="mt-2">暂无AI分析报告</p>
+                    <p class="small">点击"新建"生成第一份AI分析</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 渲染AI报告列表
+        const html = aiReportsList.map(aiReport => `
+            <div class="list-group-item list-group-item-action" onclick="loadAIAnalysisForReport('${aiReport.report_id}')" style="cursor: pointer;">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="fw-bold">${escapeHtml(getReportDisplayName({id: aiReport.report_id}) || aiReport.report_id)}</div>
+                        <small class="text-muted">
+                            <i class="bi bi-robot"></i> ${aiReport.provider || 'AI'}
+                            · ${aiReport.created_at ? new Date(aiReport.created_at).toLocaleString('zh-CN') : ''}
+                        </small>
+                    </div>
+                    <span class="badge bg-primary">AI</span>
+                </div>
+            </div>
+        `).join('');
+
+        container.innerHTML = `<div class="list-group list-group-flush">${html}</div>`;
+
+    } catch (error) {
+        console.error('加载AI报告列表失败:', error);
+        container.innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-exclamation-circle"></i>
+                <p class="mt-2">加载失败</p>
+            </div>
+        `;
+    }
+}
+
+// 检查AI配置状态
+let aiConfigStatus = null;
+async function checkAIConfigStatus() {
+    try {
+        const response = await fetch('/api/reports/ai/config-status');
+        aiConfigStatus = await response.json();
+
+        // 更新AI面板的配置状态提示
+        updateAIConfigBanner();
+
+        return aiConfigStatus;
+    } catch (error) {
+        console.error('检查AI配置状态失败:', error);
+        return null;
+    }
+}
+
+// 更新AI配置状态横幅
+function updateAIConfigBanner() {
+    const contentArea = document.getElementById('ai-report-content');
+
+    // 如果没有配置任何AI提供商，显示配置提示
+    if (aiConfigStatus && !aiConfigStatus.any_configured) {
+        const deepseek = aiConfigStatus.providers.deepseek;
+        contentArea.innerHTML = `
+            <div class="alert alert-warning mb-4">
+                <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> AI 服务未配置</h5>
+                <p class="mb-2">要使用 AI 分析功能，请先配置 API 密钥：</p>
+                <ol class="mb-3">
+                    <li>在项目根目录创建 <code>.env</code> 文件（可复制 <code>.env.example</code>）</li>
+                    <li>添加 DeepSeek API Key：<code>DEEPSEEK_API_KEY=你的密钥</code></li>
+                    <li>获取免费 API Key：<a href="${deepseek.help_url}" target="_blank" class="alert-link">${deepseek.help_url}</a></li>
+                    <li>重启 Web 服务</li>
+                </ol>
+                <hr>
+                <p class="mb-0 small text-muted">
+                    <i class="bi bi-info-circle"></i> DeepSeek API 提供免费额度，适合测试使用
+                </p>
+            </div>
+            <div class="text-center py-4">
+                <i class="bi bi-robot" style="font-size: 4rem; color: #6c757d;"></i>
+                <h5 class="mt-3 text-muted">配置完成后即可使用 AI 分析</h5>
+                <button class="btn btn-outline-primary mt-3" onclick="checkAIConfigStatus(); loadAIReportsList();">
+                    <i class="bi bi-arrow-clockwise"></i> 重新检查配置
+                </button>
+            </div>
+        `;
+    }
+}
+
+// 更新统计信息
+function updateStatistics() {
+    document.getElementById('stat-total-reports').textContent = allReports.length;
+
+    // 计算平均通过率
+    let totalPassRate = 0;
+    let totalBugs = 0;
+
+    allReports.forEach(report => {
+        const summary = report.summary || {};
+        const total = summary.total || 0;
+        const passed = summary.passed || 0;
+        if (total > 0) {
+            totalPassRate += (passed / total) * 100;
+        }
+        totalBugs += summary.failed || 0;
+    });
+
+    const avgPassRate = allReports.length > 0 ? Math.round(totalPassRate / allReports.length) : 0;
+    document.getElementById('stat-avg-pass-rate').textContent = avgPassRate + '%';
+    document.getElementById('stat-total-bugs').textContent = totalBugs;
+
+    // AI报告数量（暂时显示0）
+    document.getElementById('stat-ai-reports').textContent = '0';
+}
+
+// 渲染报告列表
+function renderReportsList() {
+    const container = document.getElementById('reports-list-container');
+    const paginationContainer = document.getElementById('pagination-container');
+
+    if (filteredReports.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state-large">
+                <i class="bi bi-file-earmark-x"></i>
+                <h5>暂无报告</h5>
+                <p>还没有测试报告，请先执行测试</p>
+                <a href="/tests" class="btn btn-primary mt-3">
+                    <i class="bi bi-play-circle"></i> 去测试
+                </a>
+            </div>
+        `;
+        paginationContainer.style.display = 'none';
+        document.getElementById('report-count-badge').textContent = '0 份报告';
+        return;
+    }
+
+    // 分页计算
+    const totalPages = Math.ceil(filteredReports.length / pageSize);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredReports.length);
+    const pageReports = filteredReports.slice(startIndex, endIndex);
+
+    // 渲染报告卡片
+    const html = `
+        <div class="row g-3">
+            ${pageReports.map(report => renderReportCard(report)).join('')}
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // 更新分页
+    paginationContainer.style.display = 'block';
+    document.getElementById('total-count').textContent = filteredReports.length;
+    document.getElementById('report-count-badge').textContent = `${filteredReports.length} 份报告`;
+    renderPagination(totalPages);
+
+    // 更新批量操作栏
+    updateBatchActionBar();
+}
+
+// 渲染单个报告卡片
+function renderReportCard(report) {
+    const summary = report.summary || {};
+    const total = summary.total || 0;
+    const passed = summary.passed || 0;
+    const failed = summary.failed || 0;
+    const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+    const isSelected = selectedReports.has(report.id);
+    const statusClass = passRate >= 90 ? 'success' : passRate >= 70 ? 'warning' : 'danger';
+    const statusIcon = passRate >= 90 ? 'check-circle-fill' : passRate >= 70 ? 'exclamation-circle-fill' : 'x-circle-fill';
+
+    const timestamp = report.timestamp ? new Date(report.timestamp).toLocaleString('zh-CN') : '未知时间';
+    const testMode = report.test_mode === 'quick' ? '快速测试' : report.test_mode === 'full' ? '全面测试' : '测试';
+
+    // 生成友好的报告标题
+    const reportTitle = getReportDisplayName(report);
+
+    return `
+        <div class="col-md-6 col-lg-4">
+            <div class="card report-card ${isSelected ? 'selected' : ''}" onclick="toggleReportSelection('${report.id}', event)">
+                <div class="report-checkbox" onclick="event.stopPropagation()">
+                    <input class="form-check-input" type="checkbox" ${isSelected ? 'checked' : ''}
+                           onchange="toggleReportSelection('${report.id}', event)">
+                </div>
+                <div class="report-status">
+                    <i class="bi bi-${statusIcon} text-${statusClass}"></i>
+                </div>
+                <div class="card-body pt-4">
+                    <h6 class="card-title mb-2" style="padding-left: 24px;" title="${escapeHtml(report.id)}">
+                        ${escapeHtml(reportTitle)}
+                    </h6>
+                    <div class="report-meta mb-3">
+                        <i class="bi bi-calendar3"></i> ${timestamp}
+                        <span class="ms-2"><i class="bi bi-speedometer2"></i> ${testMode}</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small text-muted">通过率</span>
+                        <span class="badge bg-${statusClass}">${passRate}%</span>
+                    </div>
+                    <div class="pass-rate-bar">
+                        <div class="pass-rate-fill bg-${statusClass}" style="width: ${passRate}%"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mt-3 text-center">
+                        <div>
+                            <div class="fw-bold text-primary">${total}</div>
+                            <small class="text-muted">总数</small>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-success">${passed}</div>
+                            <small class="text-muted">通过</small>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-danger">${failed}</div>
+                            <small class="text-muted">失败</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 pt-0">
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); viewReportDetail('${report.id}')">
+                            <i class="bi bi-eye"></i> 详情
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); viewAIAnalysis('${report.id}')">
+                            <i class="bi bi-robot"></i> AI分析
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 生成报告的友好显示名称
+function getReportDisplayName(report) {
+    // 1. 如果有test_scope字段，优先使用
+    if (report.test_scope) {
+        return report.test_scope;
+    }
+
+    // 2. 尝试从test_config构建名称
+    const config = report.test_config || {};
+    if (config.category) {
+        return `分类: ${config.category}`;
+    }
+    if (config.priority) {
+        return `优先级: ${config.priority}`;
+    }
+    if (config.product_ids && config.product_ids.length > 0) {
+        if (config.product_ids.length === 1) {
+            return `单个商品测试`;
+        }
+        return `自定义选择 ${config.product_ids.length} 个商品`;
+    }
+    if (config.product_count) {
+        return `批量测试 ${config.product_count} 个商品`;
+    }
+
+    // 3. 从summary推断
+    const summary = report.summary || {};
+    if (summary.total) {
+        if (summary.total === 1) {
+            return `单个商品测试`;
+        }
+        return `批量测试 ${summary.total} 个商品`;
+    }
+
+    // 4. 从id中提取时间作为最后的fallback
+    const id = report.id || '';
+    if (id.startsWith('batch_test_')) {
+        const timeStr = id.replace('batch_test_', '');
+        return `批量测试 ${formatIdTimestamp(timeStr)}`;
+    }
+    if (id.startsWith('test_')) {
+        const timeStr = id.replace('test_', '');
+        return `测试报告 ${formatIdTimestamp(timeStr)}`;
+    }
+
+    return id;
+}
+
+// 格式化ID中的时间戳
+function formatIdTimestamp(timeStr) {
+    // 输入格式: 20251205_091054
+    if (timeStr.length >= 8) {
+        const year = timeStr.substring(0, 4);
+        const month = timeStr.substring(4, 6);
+        const day = timeStr.substring(6, 8);
+        return `${month}/${day}`;
+    }
+    return timeStr;
+}
+
+// 渲染分页
+function renderPagination(totalPages) {
+    const pagination = document.getElementById('pagination');
+
+    if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+    }
+
+    let html = '';
+
+    // 上一页
+    html += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
+
+    // 页码
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage < maxVisiblePages - 1) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    if (startPage > 1) {
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(1); return false;">1</a></li>`;
+        if (startPage > 2) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+        html += `
+            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+            </li>
+        `;
+    }
+
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        html += `<li class="page-item"><a class="page-link" href="#" onclick="goToPage(${totalPages}); return false;">${totalPages}</a></li>`;
+    }
+
+    // 下一页
+    html += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+
+    pagination.innerHTML = html;
+}
+
+// 分页操作
+function goToPage(page) {
+    currentPage = page;
+    renderReportsList();
+    // 滚动到顶部
+    document.getElementById('reports-list-container').scrollIntoView({ behavior: 'smooth' });
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('page-size').value);
+    currentPage = 1;
+    renderReportsList();
+}
+
+// 筛选功能
+function applyFilters() {
+    const timeRange = document.getElementById('filter-time-range').value;
+    const testMode = document.getElementById('filter-test-mode').value;
+    const passRateFilter = document.getElementById('filter-pass-rate').value;
+    const searchTerm = document.getElementById('filter-search').value.toLowerCase().trim();
+
+    filteredReports = allReports.filter(report => {
+        // 时间筛选
+        if (timeRange) {
+            const reportDate = new Date(report.timestamp);
+            const now = new Date();
+            if (timeRange === 'today') {
+                if (reportDate.toDateString() !== now.toDateString()) return false;
+            } else if (timeRange === 'week') {
+                const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                if (reportDate < weekAgo) return false;
+            } else if (timeRange === 'month') {
+                const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                if (reportDate < monthAgo) return false;
+            }
+        }
+
+        // 测试模式筛选
+        if (testMode && report.test_mode !== testMode) return false;
+
+        // 通过率筛选
+        if (passRateFilter) {
+            const summary = report.summary || {};
+            const total = summary.total || 0;
+            const passed = summary.passed || 0;
+            const passRate = total > 0 ? (passed / total) * 100 : 0;
+
+            if (passRateFilter === 'high' && passRate < 90) return false;
+            if (passRateFilter === 'medium' && (passRate < 70 || passRate >= 90)) return false;
+            if (passRateFilter === 'low' && passRate >= 70) return false;
+        }
+
+        // 搜索筛选
+        if (searchTerm) {
+            const idMatch = report.id.toLowerCase().includes(searchTerm);
+            // 可以扩展搜索商品名称等
+            if (!idMatch) return false;
+        }
+
+        return true;
+    });
+
+    currentPage = 1;
+    renderReportsList();
+}
+
+// 选择功能
+function toggleReportSelection(reportId, event) {
+    if (event) {
+        event.preventDefault();
+    }
+
+    if (selectedReports.has(reportId)) {
+        selectedReports.delete(reportId);
+    } else {
+        selectedReports.add(reportId);
+    }
+
+    renderReportsList();
+}
+
+function selectAllVisible() {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredReports.length);
+    const pageReports = filteredReports.slice(startIndex, endIndex);
+
+    pageReports.forEach(report => selectedReports.add(report.id));
+    renderReportsList();
+}
+
+function selectAll() {
+    filteredReports.forEach(report => selectedReports.add(report.id));
+    renderReportsList();
+}
+
+function clearSelection() {
+    selectedReports.clear();
+    renderReportsList();
+}
+
+function updateBatchActionBar() {
+    const bar = document.getElementById('batch-action-bar');
+    const count = selectedReports.size;
+
+    if (count > 0) {
+        bar.classList.add('show');
+        document.getElementById('selected-count').textContent = count;
+        document.getElementById('delete-count').textContent = count;
+    } else {
+        bar.classList.remove('show');
+    }
+}
+
+// 删除功能
+function deleteSelected() {
+    if (selectedReports.size === 0) {
+        utils.showToast('请先选择要删除的报告', 'warning');
+        return;
+    }
+
+    document.getElementById('confirm-delete-count').textContent = selectedReports.size;
+    const modal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+    modal.show();
+}
+
+async function confirmDelete() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+    modal.hide();
+
+    const idsToDelete = Array.from(selectedReports);
+
+    try {
+        const response = await fetch('/api/reports/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: idsToDelete })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            utils.showToast(`成功删除 ${idsToDelete.length} 份报告`, 'success');
+            selectedReports.clear();
+            loadReports();
+        } else {
+            utils.showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+        }
+    } catch (error) {
+        utils.showToast('删除失败: ' + error.message, 'error');
+    }
+}
+
+// 查看报告详情
+async function viewReportDetail(reportId) {
+    currentReportId = reportId;
+
+    // 显示加载中
+    document.getElementById('detail-products-container').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2 text-muted">加载中...</p>
+        </div>
+    `;
+
+    const modal = new bootstrap.Modal(document.getElementById('reportDetailModal'));
+    modal.show();
+
+    try {
+        const response = await fetch(`/api/reports/detail/${reportId}`);
+        const report = await response.json();
+
+        displayReportDetail(report);
+    } catch (error) {
+        console.error('加载报告详情失败:', error);
+        document.getElementById('detail-products-container').innerHTML = `
+            <div class="text-center py-4 text-danger">
+                <i class="bi bi-exclamation-circle"></i> 加载失败
+            </div>
+        `;
+    }
+}
+
+function displayReportDetail(report) {
+    const summary = report.summary || {};
+    const total = summary.total || 0;
+    const passed = summary.passed || 0;
+    const failed = summary.failed || 0;
+    const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+
+    // 使用友好名称作为标题
+    const reportTitle = getReportDisplayName(report);
+    document.getElementById('detail-title').textContent = reportTitle;
+    document.getElementById('detail-time').textContent = report.timestamp ?
+        new Date(report.timestamp).toLocaleString('zh-CN') : '未知时间';
+
+    document.getElementById('detail-total').textContent = total;
+    document.getElementById('detail-passed').textContent = passed;
+    document.getElementById('detail-failed').textContent = failed;
+    document.getElementById('detail-duration').textContent = summary.duration ?
+        summary.duration.toFixed(1) + 's' : 'N/A';
+
+    document.getElementById('detail-pass-rate').textContent = passRate + '%';
+    document.getElementById('detail-pass-rate-bar').style.width = passRate + '%';
+
+    // 渲染商品测试详情
+    const products = report.products || report.tests || [];
+    if (products.length === 0) {
+        document.getElementById('detail-products-container').innerHTML = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox"></i> 暂无详细数据
+            </div>
+        `;
+        return;
+    }
+
+    const html = products.map((product, index) => `
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button ${index === 0 ? '' : 'collapsed'}" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#product-${index}">
+                    <span class="me-2">
+                        ${product.status === 'passed' ? '<i class="bi bi-check-circle-fill text-success"></i>' :
+                          product.status === 'failed' ? '<i class="bi bi-x-circle-fill text-danger"></i>' :
+                          '<i class="bi bi-dash-circle text-warning"></i>'}
+                    </span>
+                    <span class="flex-grow-1">${escapeHtml(product.product_name || product.name || product.product_id || 'N/A')}</span>
+                    <span class="badge bg-${product.status === 'passed' ? 'success' : 'danger'} me-2">
+                        ${product.status || 'unknown'}
+                    </span>
+                </button>
+            </h2>
+            <div id="product-${index}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}">
+                <div class="accordion-body">
+                    ${renderProductSteps(product.steps || [])}
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('detail-products-container').innerHTML = `<div class="accordion">${html}</div>`;
+}
+
+function renderProductSteps(steps) {
+    if (!steps || steps.length === 0) {
+        return '<p class="text-muted">无步骤数据</p>';
+    }
+
+    return `
+        <div class="step-timeline">
+            ${steps.map(step => `
+                <div class="step-item ${step.status || ''}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>步骤 ${step.number}: ${escapeHtml(step.name || '')}</strong>
+                            ${step.description ? `<p class="text-muted small mb-1">${escapeHtml(step.description)}</p>` : ''}
+                            ${step.result ? `<p class="small mb-0"><i class="bi bi-info-circle"></i> ${escapeHtml(step.result)}</p>` : ''}
+                            ${step.error ? `<p class="small text-danger mb-0"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(step.error)}</p>` : ''}
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-${step.status === 'passed' ? 'success' : step.status === 'failed' ? 'danger' : 'warning'}">
+                                ${step.status || 'pending'}
+                            </span>
+                            ${step.duration ? `<br><small class="text-muted">${step.duration}s</small>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+// AI分析功能
+function viewAIAnalysis(reportId) {
+    // 切换到AI标签页
+    const aiTab = new bootstrap.Tab(document.getElementById('ai-tab'));
+    aiTab.show();
+
+    // 加载该报告的AI分析
+    loadAIAnalysisForReport(reportId);
+}
+
+async function loadAIAnalysisForReport(reportId) {
+    document.getElementById('ai-report-content').innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-3 text-muted">正在加载AI分析...</p>
+        </div>
+    `;
+
+    try {
+        const response = await fetch(`/api/reports/ai/${reportId}`);
+
         if (!response.ok) {
-            utils.showEmptyState('latest-report-container', '暂无测试报告', 'file-earmark-x');
-            utils.showEmptyState('test-details-container', '暂无测试详情', 'file-earmark-x');
+            // AI分析不存在，提示生成
+            document.getElementById('ai-report-content').innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-robot" style="font-size: 4rem; color: #667eea;"></i>
+                    <h5 class="mt-3 text-muted">该报告暂无AI分析</h5>
+                    <p class="text-muted">点击下方按钮生成AI智能分析</p>
+                    <button class="btn btn-primary mt-3" onclick="generateAIForReport('${reportId}')">
+                        <i class="bi bi-robot"></i> 生成AI分析
+                    </button>
+                </div>
+            `;
             return;
         }
 
         const data = await response.json();
-        displayReportSummary(data);
-        displayTestDetails(data);
+        displayAIAnalysis(data);
 
     } catch (error) {
-        console.error('加载最新报告失败:', error);
-        utils.showError('latest-report-container', '加载报告失败');
+        console.error('加载AI分析失败:', error);
+        document.getElementById('ai-report-content').innerHTML = `
+            <div class="text-center py-5 text-danger">
+                <i class="bi bi-exclamation-circle" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">加载失败</h5>
+                <p>${error.message}</p>
+            </div>
+        `;
     }
 }
 
-// 显示报告摘要
-function displayReportSummary(data) {
-    const summary = data.summary || {};
-    const total = summary.total || 0;
-    const passed = summary.passed || 0;
-    const failed = summary.failed || 0;
-    const skipped = summary.skipped || 0;
-    const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+function displayAIAnalysis(data) {
+    const content = data.analysis || data.content || '暂无分析内容';
 
-    const html = `
-        <div class="row g-4 mb-4">
-            <div class="col-md-3">
-                <div class="text-center">
-                    <h3 class="text-primary">${total}</h3>
-                    <p class="text-muted mb-0">总测试数</p>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="text-center">
-                    <h3 class="text-success">${passed}</h3>
-                    <p class="text-muted mb-0">通过</p>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="text-center">
-                    <h3 class="text-danger">${failed}</h3>
-                    <p class="text-muted mb-0">失败</p>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="text-center">
-                    <h3 class="text-warning">${skipped}</h3>
-                    <p class="text-muted mb-0">跳过</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="mb-3">
-            <label class="form-label">通过率</label>
-            <div class="progress" style="height: 30px;">
-                <div class="progress-bar ${passRate >= 90 ? 'bg-success' : passRate >= 70 ? 'bg-warning' : 'bg-danger'}"
-                     role="progressbar" style="width: ${passRate}%">
-                    <strong>${passRate}%</strong>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <p class="mb-1"><strong>测试时间:</strong> ${utils.formatDateTime(data.timestamp)}</p>
-            </div>
-            <div class="col-md-6">
-                <p class="mb-1"><strong>执行时长:</strong> ${utils.formatDuration(summary.duration)}</p>
-            </div>
+    document.getElementById('ai-report-content').innerHTML = `
+        <div class="ai-analysis-content" style="white-space: pre-wrap; line-height: 1.8;">
+            ${escapeHtml(content)}
         </div>
     `;
-
-    document.getElementById('latest-report-container').innerHTML = html;
 }
 
-// 显示测试详情
-function displayTestDetails(data) {
-    const tests = data.tests || [];
+function generateNewAIReport() {
+    // 填充报告选择器
+    const select = document.getElementById('ai-report-source');
+    select.innerHTML = '<option value="latest">最新报告</option>';
 
-    if (tests.length === 0) {
-        utils.showEmptyState('test-details-container', '暂无测试详情', 'file-earmark-x');
+    // 添加所有报告选项
+    allReports.slice(0, 20).forEach(report => {
+        const displayName = getReportDisplayName(report);
+        const option = document.createElement('option');
+        option.value = report.id;
+        option.textContent = `${displayName} (${report.timestamp ? new Date(report.timestamp).toLocaleDateString('zh-CN') : ''})`;
+        select.appendChild(option);
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('generateAIModal'));
+    modal.show();
+}
+
+// AI分析进度状态消息（渐进式反馈）
+const AI_PROGRESS_MESSAGES = [
+    { time: 0, message: '正在连接AI服务...', icon: 'bi-cloud-arrow-up' },
+    { time: 2000, message: '正在读取测试报告数据...', icon: 'bi-file-earmark-text' },
+    { time: 4000, message: '正在分析测试结果...', icon: 'bi-cpu' },
+    { time: 8000, message: 'AI正在生成分析报告...', icon: 'bi-robot' },
+    { time: 15000, message: '正在整理分析结论...', icon: 'bi-list-check' },
+    { time: 25000, message: '即将完成，请稍候...', icon: 'bi-hourglass-split' }
+];
+
+let aiProgressInterval = null;
+let aiProgressStartTime = null;
+
+async function startGenerateAI(reportIdOverride = null) {
+    // 安全地隐藏模态框（可能从模态框或直接按钮调用）
+    const modalElement = document.getElementById('generateAIModal');
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+        modal.hide();
+    }
+
+    // 获取参数（支持从模态框或直接传入）
+    const reportSourceElement = document.getElementById('ai-report-source');
+    const reportSource = reportIdOverride || (reportSourceElement ? reportSourceElement.value : 'latest');
+    const providerElement = document.getElementById('ai-provider-select');
+    const provider = providerElement ? providerElement.value : 'deepseek';
+    const summaryOnlyElement = document.getElementById('ai-summary-only');
+    const summaryOnly = summaryOnlyElement ? summaryOnlyElement.checked : false;
+
+    // 先检查AI配置状态
+    if (!aiConfigStatus) {
+        await checkAIConfigStatus();
+    }
+
+    // 如果没有配置AI，显示配置提示
+    if (aiConfigStatus && !aiConfigStatus.any_configured) {
+        const deepseek = aiConfigStatus.providers.deepseek;
+        utils.showToast('AI 服务未配置，请先设置 API Key', 'warning');
+        document.getElementById('ai-report-content').innerHTML = `
+            <div class="alert alert-warning mb-4">
+                <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> AI 服务未配置</h5>
+                <p class="mb-2">要使用 AI 分析功能，请先配置 API 密钥：</p>
+                <ol class="mb-3">
+                    <li>在项目根目录创建 <code>.env</code> 文件（可复制 <code>.env.example</code>）</li>
+                    <li>添加 DeepSeek API Key：<code>DEEPSEEK_API_KEY=你的密钥</code></li>
+                    <li>获取免费 API Key：<a href="${deepseek.help_url}" target="_blank" class="alert-link">${deepseek.help_url}</a></li>
+                    <li>重启 Web 服务</li>
+                </ol>
+            </div>
+        `;
         return;
     }
 
-    const html = `
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>商品</th>
-                        <th>测试类型</th>
-                        <th>状态</th>
-                        <th>耗时</th>
-                        <th>错误信息</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tests.map(test => `
-                        <tr class="test-result-item ${test.status}">
-                            <td>${escapeHtml(test.product_name || test.product_id || 'N/A')}</td>
-                            <td><code>${escapeHtml(test.test_name || 'N/A')}</code></td>
-                            <td>${utils.getStatusBadge(test.status)}</td>
-                            <td>${test.duration ? test.duration.toFixed(2) + 's' : 'N/A'}</td>
-                            <td>
-                                ${test.error ? `
-                                    <button class="btn btn-sm btn-outline-danger" onclick="showErrorDetail('${escapeHtml(test.error)}')">
-                                        <i class="bi bi-exclamation-circle"></i> 查看错误
-                                    </button>
-                                ` : '-'}
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+    // 初始化进度显示
+    aiProgressStartTime = Date.now();
+    updateAIProgressUI(provider, reportSource, 0);
 
-    document.getElementById('test-details-container').innerHTML = html;
-}
-
-// 加载 AI 报告
-async function loadAIReport() {
-    try {
-        // 这里应该从某个文件或API读取AI报告
-        // 暂时显示占位符
-        setTimeout(() => {
-            const html = `
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    AI 报告尚未生成，请点击"生成 AI 报告"按钮。
-                </div>
-                <p class="text-muted">
-                    AI 报告将分析测试结果，提供智能洞察和建议。
-                </p>
-            `;
-            document.getElementById('ai-report-container').innerHTML = html;
-        }, 500);
-    } catch (error) {
-        console.error('加载 AI 报告失败:', error);
-    }
-}
-
-// 生成 AI 报告
-async function generateAIReport() {
-    const provider = document.getElementById('ai-provider').value;
-
-    utils.showLoading('ai-report-container');
+    // 启动渐进式进度更新
+    startAIProgressAnimation(provider, reportSource);
 
     try {
         const response = await fetch('/api/reports/ai/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider })
+            body: JSON.stringify({
+                provider,
+                summary_only: summaryOnly,
+                report_id: reportSource
+            })
         });
 
         const data = await response.json();
 
-        utils.showToast('AI 报告生成任务已启动...', 'info');
-
-        utils.pollTaskStatus(data.task_id, null, result => {
-            if (result.status === 'completed') {
-                utils.showToast('AI 报告生成完成！', 'success');
-                loadAIReport();
-            } else {
-                utils.showToast('AI 报告生成失败', 'error');
-                loadAIReport();
-            }
-        });
-
-    } catch (error) {
-        utils.showToast('启动任务失败: ' + error.message, 'error');
-        loadAIReport();
-    }
-}
-
-// 加载趋势分析
-async function loadTrends() {
-    try {
-        const response = await fetch('/api/trends/latest');
+        // 处理服务器错误响应
         if (!response.ok) {
-            const html = `
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    趋势分析尚未生成，请点击"分析"按钮。
+            stopAIProgressAnimation();
+            const errorMsg = data.message || data.error || '生成失败';
+            utils.showToast(errorMsg, 'warning');
+            document.getElementById('ai-report-content').innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-exclamation-circle text-warning" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3 text-warning">${escapeHtml(errorMsg)}</h5>
+                    <p class="text-muted">请先运行测试生成报告，然后再使用AI分析功能</p>
+                    <a href="/tests" class="btn btn-primary mt-3">
+                        <i class="bi bi-play-circle"></i> 去测试
+                    </a>
                 </div>
             `;
-            document.getElementById('trends-container').innerHTML = html;
             return;
         }
 
-        const data = await response.json();
-        displayTrends(data);
-
-    } catch (error) {
-        console.error('加载趋势分析失败:', error);
-    }
-}
-
-// 显示趋势分析
-function displayTrends(data) {
-    const html = `
-        <div class="alert alert-success">
-            <i class="bi bi-check-circle"></i>
-            趋势分析数据已加载
-        </div>
-        <pre>${JSON.stringify(data, null, 2)}</pre>
-    `;
-    document.getElementById('trends-container').innerHTML = html;
-}
-
-// 分析趋势
-async function analyzeTrends() {
-    const days = document.getElementById('trends-days').value;
-
-    utils.showLoading('trends-container');
-
-    try {
-        const response = await fetch('/api/trends/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ days: parseInt(days) })
-        });
-
-        const data = await response.json();
-
-        utils.showToast('趋势分析任务已启动...', 'info');
-
-        utils.pollTaskStatus(data.task_id, null, result => {
-            if (result.status === 'completed') {
-                utils.showToast('趋势分析完成！', 'success');
-                loadTrends();
-            } else {
-                utils.showToast('趋势分析失败', 'error');
-                loadTrends();
-            }
-        });
-
-    } catch (error) {
-        utils.showToast('启动任务失败: ' + error.message, 'error');
-        loadTrends();
-    }
-}
-
-// 加载商品变更
-async function loadChanges() {
-    try {
-        const response = await fetch('/api/changes/latest');
-        if (!response.ok) {
-            const html = `
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    尚未检测商品变更，请点击"检测变更"按钮。
-                </div>
-            `;
-            document.getElementById('changes-container').innerHTML = html;
-            return;
+        if (!data.task_id) {
+            throw new Error('服务器未返回任务ID');
         }
 
-        const data = await response.json();
-        displayChanges(data);
+        console.log('[AI分析] 任务已启动:', data.task_id);
+        console.log('[AI分析] 分析报告:', data.report_id);
+
+        // 保存实际使用的report_id（可能是后端找到的最新报告）
+        const actualReportId = data.report_id || reportSource;
+
+        // 使用带进度更新的轮询
+        utils.pollTaskStatus(data.task_id,
+            // onUpdate: 实时更新状态
+            (status) => {
+                console.log('[AI分析] 状态更新:', status.status);
+                if (status.logs && status.logs.length > 0) {
+                    // 如果有日志，显示最新的日志信息
+                    const lastLog = status.logs[status.logs.length - 1];
+                    if (lastLog && lastLog.includes('✅')) {
+                        updateAIProgressMessage(lastLog, 'bi-check-circle');
+                    }
+                }
+            },
+            // onComplete: 完成回调
+            (result) => {
+                // 停止进度动画
+                stopAIProgressAnimation();
+
+                console.log('[AI分析] 任务完成:', result.status);
+
+                if (result.status === 'completed') {
+                    utils.showToast('AI分析生成完成！', 'success');
+                    loadAIAnalysisForReport(actualReportId);
+                    loadAIReportsList();
+                } else {
+                    handleAIGenerationError(result, actualReportId);
+                }
+            }
+        );
 
     } catch (error) {
-        console.error('加载商品变更失败:', error);
+        stopAIProgressAnimation();
+        console.error('[AI分析] 启动失败:', error);
+        utils.showToast('启动AI分析失败: ' + error.message, 'error');
+        document.getElementById('ai-report-content').innerHTML = `
+            <div class="text-center py-5">
+                <i class="bi bi-exclamation-circle text-danger" style="font-size: 3rem;"></i>
+                <h5 class="mt-3 text-danger">启动失败</h5>
+                <p class="text-muted">${escapeHtml(error.message)}</p>
+                <button class="btn btn-outline-primary mt-3" onclick="generateNewAIReport()">
+                    <i class="bi bi-arrow-clockwise"></i> 重试
+                </button>
+            </div>
+        `;
     }
 }
 
-// 显示商品变更
-function displayChanges(data) {
-    const html = `
-        <div class="alert alert-success">
-            <i class="bi bi-check-circle"></i>
-            变更检测数据已加载
-        </div>
-        <pre>${JSON.stringify(data, null, 2)}</pre>
-    `;
-    document.getElementById('changes-container').innerHTML = html;
+// 启动AI进度动画
+function startAIProgressAnimation(provider, reportSource) {
+    if (aiProgressInterval) {
+        clearInterval(aiProgressInterval);
+    }
+
+    aiProgressInterval = setInterval(() => {
+        const elapsed = Date.now() - aiProgressStartTime;
+
+        // 找到当前应该显示的消息
+        let currentMessage = AI_PROGRESS_MESSAGES[0];
+        for (const msg of AI_PROGRESS_MESSAGES) {
+            if (elapsed >= msg.time) {
+                currentMessage = msg;
+            }
+        }
+
+        updateAIProgressMessage(currentMessage.message, currentMessage.icon);
+
+        // 更新进度条（模拟进度，最多到90%）
+        const progress = Math.min(90, (elapsed / 30000) * 90);
+        const progressBar = document.getElementById('ai-progress-bar');
+        if (progressBar) {
+            progressBar.style.width = progress + '%';
+        }
+    }, 500);
 }
 
-// 检测变更
-async function detectChanges() {
-    utils.showLoading('changes-container');
+// 停止AI进度动画
+function stopAIProgressAnimation() {
+    if (aiProgressInterval) {
+        clearInterval(aiProgressInterval);
+        aiProgressInterval = null;
+    }
+}
+
+// 更新AI进度UI
+function updateAIProgressUI(provider, reportSource, progress) {
+    const providerName = provider === 'deepseek' ? 'DeepSeek' : 'Claude';
+    document.getElementById('ai-report-content').innerHTML = `
+        <div class="text-center py-5">
+            <div class="position-relative d-inline-block">
+                <div class="spinner-border text-primary" style="width: 4rem; height: 4rem;"></div>
+                <i class="bi bi-robot position-absolute" style="top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.5rem; color: #667eea;"></i>
+            </div>
+            <h5 class="mt-4" id="ai-progress-title">正在生成AI分析...</h5>
+            <p class="text-muted" id="ai-progress-message">
+                <i class="bi bi-cloud-arrow-up" id="ai-progress-icon"></i>
+                <span id="ai-progress-text">正在连接AI服务...</span>
+            </p>
+            <div class="progress mt-4" style="max-width: 400px; margin: 0 auto; height: 8px;">
+                <div class="progress-bar bg-primary" id="ai-progress-bar"
+                     style="width: ${progress}%; transition: width 0.5s ease;"></div>
+            </div>
+            <div class="mt-3 small text-muted">
+                <span class="badge bg-light text-dark me-2">
+                    <i class="bi bi-cpu"></i> ${providerName}
+                </span>
+                <span class="badge bg-light text-dark">
+                    <i class="bi bi-file-text"></i> ${reportSource === 'latest' ? '最新报告' : reportSource}
+                </span>
+            </div>
+            <p class="text-muted small mt-3">
+                <i class="bi bi-info-circle"></i> AI分析通常需要 15-30 秒，请耐心等待
+            </p>
+        </div>
+    `;
+}
+
+// 更新进度消息
+function updateAIProgressMessage(message, icon) {
+    const textEl = document.getElementById('ai-progress-text');
+    const iconEl = document.getElementById('ai-progress-icon');
+    if (textEl) textEl.textContent = message;
+    if (iconEl) iconEl.className = 'bi ' + icon;
+}
+
+// 处理AI生成错误
+function handleAIGenerationError(result, reportSource) {
+    let errorMessage = '生成失败';
+    let errorDetails = '';
+    let configHelp = '';
+
+    if (result.result) {
+        const stderr = result.result.stderr || '';
+        const stdout = result.result.stdout || '';
+
+        if (stderr.includes('API key not found') || stderr.includes('配置错误') || stdout.includes('API key not found')) {
+            errorMessage = 'API Key 未配置';
+            errorDetails = '请在 .env 文件中设置 DEEPSEEK_API_KEY';
+            configHelp = `
+                <div class="alert alert-info mt-3">
+                    <strong>配置步骤：</strong>
+                    <ol class="mb-0 mt-2">
+                        <li>复制 <code>.env.example</code> 为 <code>.env</code></li>
+                        <li>编辑 <code>.env</code>，设置 <code>DEEPSEEK_API_KEY=你的密钥</code></li>
+                        <li>获取密钥：<a href="https://platform.deepseek.com/" target="_blank">https://platform.deepseek.com/</a></li>
+                        <li>重启 Web 服务</li>
+                    </ol>
+                </div>
+            `;
+            checkAIConfigStatus();
+        } else if (stderr.includes('API 调用失败') || stderr.includes('API call failed')) {
+            errorMessage = 'AI API 调用失败';
+            const match = stderr.match(/❌.*?:\s*(.+)/);
+            errorDetails = match ? match[1] : '可能是网络问题或 API 服务暂时不可用';
+        } else if (stderr.includes('未找到报告') || stderr.includes('not found')) {
+            errorMessage = '报告文件未找到';
+            errorDetails = `无法找到报告ID "${reportSource}" 对应的文件`;
+        } else if (stderr) {
+            const lines = stderr.trim().split('\n');
+            errorDetails = lines.slice(-3).join('<br>');
+        }
+    }
+
+    utils.showToast('AI分析生成失败: ' + errorMessage, 'error');
+    document.getElementById('ai-report-content').innerHTML = `
+        <div class="text-center py-5">
+            <i class="bi bi-exclamation-circle text-danger" style="font-size: 3rem;"></i>
+            <h5 class="mt-3 text-danger">${escapeHtml(errorMessage)}</h5>
+            ${errorDetails ? `<p class="text-muted">${errorDetails}</p>` : ''}
+            ${configHelp}
+            <div class="mt-4">
+                <button class="btn btn-outline-primary me-2" onclick="generateNewAIReport()">
+                    <i class="bi bi-arrow-clockwise"></i> 重试
+                </button>
+                <button class="btn btn-outline-secondary" onclick="checkAIConfigStatus(); loadAIReportsList();">
+                    <i class="bi bi-gear"></i> 检查配置
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+async function generateAIForReport(reportId) {
+    if (!reportId) reportId = currentReportId;
+    if (!reportId) {
+        utils.showToast('请先选择一份报告', 'warning');
+        return;
+    }
+
+    // 设置报告ID到隐藏字段（如果存在）
+    const reportSourceElement = document.getElementById('ai-report-source');
+    if (reportSourceElement) {
+        reportSourceElement.value = reportId;
+    }
+
+    // 直接调用生成函数，传递reportId
+    await startGenerateAI(reportId);
+}
+
+function copyAIReport() {
+    const content = document.getElementById('ai-report-content').innerText;
+    navigator.clipboard.writeText(content).then(() => {
+        utils.showToast('已复制到剪贴板', 'success');
+    }).catch(err => {
+        utils.showToast('复制失败', 'error');
+    });
+}
+
+// 趋势图表
+async function loadTrendChart() {
+    const days = document.getElementById('trend-days').value;
 
     try {
-        const response = await fetch('/api/changes/detect', { method: 'POST' });
-        const data = await response.json();
+        // 从报告数据计算趋势
+        const trendData = calculateTrendData(days);
 
-        utils.showToast('商品变更检测任务已启动...', 'info');
-
-        utils.pollTaskStatus(data.task_id, null, result => {
-            if (result.status === 'completed') {
-                utils.showToast('变更检测完成！', 'success');
-                loadChanges();
-            } else {
-                utils.showToast('变更检测失败', 'error');
-                loadChanges();
-            }
-        });
+        renderTrendChart(trendData);
+        renderPieChart(trendData);
+        renderStepFailureRanking();
 
     } catch (error) {
-        utils.showToast('启动任务失败: ' + error.message, 'error');
-        loadChanges();
+        console.error('加载趋势图失败:', error);
     }
 }
 
-// 刷新最新报告
-function refreshLatestReport() {
-    utils.showLoading('latest-report-container');
-    utils.showLoading('test-details-container');
-    loadLatestReport();
+function calculateTrendData(days) {
+    const now = new Date();
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+    // 按日期分组统计
+    const dailyStats = {};
+
+    allReports.forEach(report => {
+        const reportDate = new Date(report.timestamp);
+        if (reportDate >= startDate) {
+            const dateKey = reportDate.toISOString().split('T')[0];
+            if (!dailyStats[dateKey]) {
+                dailyStats[dateKey] = { total: 0, passed: 0, failed: 0 };
+            }
+            const summary = report.summary || {};
+            dailyStats[dateKey].total += summary.total || 0;
+            dailyStats[dateKey].passed += summary.passed || 0;
+            dailyStats[dateKey].failed += summary.failed || 0;
+        }
+    });
+
+    // 生成日期序列
+    const dates = [];
+    const passRates = [];
+
+    for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dateKey = date.toISOString().split('T')[0];
+        dates.push(dateKey.substring(5)); // MM-DD格式
+
+        const stats = dailyStats[dateKey];
+        if (stats && stats.total > 0) {
+            passRates.push(Math.round((stats.passed / stats.total) * 100));
+        } else {
+            passRates.push(null);
+        }
+    }
+
+    return { dates, passRates, dailyStats };
 }
 
-// 显示错误详情
-function showErrorDetail(error) {
-    alert(error);
+function renderTrendChart(data) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+
+    if (trendChart) {
+        trendChart.destroy();
+    }
+
+    trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.dates,
+            datasets: [{
+                label: '通过率 (%)',
+                data: data.passRates,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#667eea'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    ticks: {
+                        callback: value => value + '%'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderPieChart(data) {
+    const ctx = document.getElementById('resultPieChart').getContext('2d');
+
+    // 计算总体统计
+    let totalPassed = 0, totalFailed = 0, totalSkipped = 0;
+    allReports.forEach(report => {
+        const summary = report.summary || {};
+        totalPassed += summary.passed || 0;
+        totalFailed += summary.failed || 0;
+        totalSkipped += summary.skipped || 0;
+    });
+
+    if (pieChart) {
+        pieChart.destroy();
+    }
+
+    pieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['通过', '失败', '跳过'],
+            datasets: [{
+                data: [totalPassed, totalFailed, totalSkipped],
+                backgroundColor: ['#28a745', '#dc3545', '#ffc107'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function renderStepFailureRanking() {
+    // 从真实报告数据统计各步骤失败次数
+    const stepFailures = {};
+
+    allReports.forEach(report => {
+        // 获取测试结果（支持不同的数据结构）
+        const results = report.results || report.products || report.tests || [];
+
+        results.forEach(result => {
+            const steps = result.steps || [];
+            steps.forEach(step => {
+                if (step.status === 'failed') {
+                    const stepName = step.name || `步骤${step.number}`;
+                    stepFailures[stepName] = (stepFailures[stepName] || 0) + 1;
+                }
+            });
+        });
+    });
+
+    // 转换为数组并排序
+    const ranking = Object.entries(stepFailures)
+        .map(([step, count]) => ({ step, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5); // 只显示前5名
+
+    if (ranking.length === 0) {
+        document.getElementById('step-failure-ranking').innerHTML =
+            '<p class="text-muted text-center py-3"><i class="bi bi-check-circle"></i> 暂无失败记录，太棒了！</p>';
+        return;
+    }
+
+    const maxCount = ranking[0].count;
+    const html = ranking.map((item, index) => `
+        <div class="d-flex align-items-center mb-2">
+            <span class="badge bg-${index < 3 ? 'danger' : 'warning'} me-2">${index + 1}</span>
+            <div class="flex-grow-1">
+                <small>${escapeHtml(item.step)}</small>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-danger" style="width: ${(item.count / maxCount) * 100}%"></div>
+                </div>
+            </div>
+            <span class="ms-2 text-muted small">${item.count}</span>
+        </div>
+    `).join('');
+
+    document.getElementById('step-failure-ranking').innerHTML = html;
+}
+
+// 导出功能 - 导出所有筛选后的报告
+function exportReports() {
+    if (filteredReports.length === 0) {
+        utils.showToast('没有可导出的报告', 'warning');
+        return;
+    }
+
+    // 准备导出数据
+    const exportData = {
+        export_time: new Date().toISOString(),
+        total_reports: filteredReports.length,
+        reports: filteredReports.map(report => ({
+            id: report.id,
+            timestamp: report.timestamp,
+            test_mode: report.test_mode,
+            test_scope: report.test_scope,
+            summary: report.summary
+        }))
+    };
+
+    // 下载JSON文件
+    downloadJson(exportData, `fiido_reports_${formatExportDate()}.json`);
+    utils.showToast(`已导出 ${filteredReports.length} 份报告摘要`, 'success');
+}
+
+// 导出单个报告详情
+async function exportSingleReport() {
+    if (!currentReportId) {
+        utils.showToast('请先选择一份报告', 'warning');
+        return;
+    }
+
+    try {
+        // 获取报告详情
+        const response = await fetch(`/api/reports/detail/${currentReportId}`);
+        if (!response.ok) {
+            throw new Error('获取报告详情失败');
+        }
+
+        const reportData = await response.json();
+
+        // 下载JSON文件
+        downloadJson(reportData, `fiido_report_${currentReportId}.json`);
+        utils.showToast('报告导出成功', 'success');
+
+    } catch (error) {
+        utils.showToast('导出失败: ' + error.message, 'error');
+    }
+}
+
+// 通用下载JSON函数
+function downloadJson(data, filename) {
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// 格式化导出日期
+function formatExportDate() {
+    const now = new Date();
+    return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+// 刷新
+function refreshAllData() {
+    loadReports();
+    loadTrendChart();
+    utils.showToast('数据已刷新', 'success');
 }
 
 // 工具函数
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;

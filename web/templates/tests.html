@@ -122,7 +122,8 @@
     animation: gradientShift 3s ease infinite !important;
     border-radius: 12px;
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.6), 0 0 40px rgba(139, 92, 246, 0.4);
-    transition: width 0.5s ease-out;
+    /* 使用更长的过渡时间和更平滑的贝塞尔曲线实现完全平滑 */
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     min-height: 28px;
     overflow: hidden;
 }
@@ -481,9 +482,14 @@
 <div class="card" id="current-test-results" style="display: none;">
     <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
         <span><i class="bi bi-check-circle"></i> 测试完成</span>
-        <button class="btn btn-sm btn-light" onclick="clearCurrentResults()">
-            <i class="bi bi-x"></i> 清除
-        </button>
+        <div>
+            <a href="/reports" class="btn btn-sm btn-light me-2">
+                <i class="bi bi-file-earmark-bar-graph"></i> 查看报告中心
+            </a>
+            <button class="btn btn-sm btn-outline-light" onclick="clearCurrentResults()">
+                <i class="bi bi-x"></i> 关闭
+            </button>
+        </div>
     </div>
     <div class="card-body">
         <!-- 总体结果 -->
@@ -568,6 +574,15 @@ let progressAnimationFrame = null;  // 动画帧ID
 let totalExpectedSteps = 0;      // 预期总步骤数
 let totalExpectedProducts = 0;   // 预期商品总数
 
+// 步骤间微进度动画相关变量
+let microProgressInterval = null;   // 微进度定时器
+let lastKnownProgress = 0;          // 上次已知的真实进度
+let microProgressIncrement = 0.9;   // 每次微增量（百分比）- 6倍速更快推进
+let microProgressMaxGap = 12;       // 最大提前推进量（不超过下一个里程碑）
+
+// 会话状态持久化 - 用于标签页切换恢复
+const TEST_STATE_KEY = 'fiido_active_test_state';
+
 // 页面加载
 document.addEventListener('DOMContentLoaded', () => {
     loadProducts();
@@ -579,7 +594,101 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdown.style.display = 'none';
         }
     });
+
+    // 🔧 新增: 检查是否有正在进行的测试需要恢复
+    checkAndRestoreActiveTest();
 });
+
+// 🔧 新增: 检查并恢复正在进行的测试
+async function checkAndRestoreActiveTest() {
+    // 1. 先检查后端是否有活跃测试
+    try {
+        const response = await fetch('/api/tests/active');
+        const data = await response.json();
+
+        if (data.has_active) {
+            console.log('[恢复测试] 检测到后端有活跃测试:', data.task_id);
+
+            // 恢复测试状态
+            currentTaskId = data.task_id;
+            currentTestMode = data.test_mode || 'quick';
+            testStartTime = new Date(data.started_at).getTime();
+
+            // 显示执行状态卡片
+            showTestExecutionCard(true); // true = 恢复模式，不重置进度
+
+            // 恢复轮询
+            utils.pollTaskStatus(currentTaskId, updateTestStatus, onTestComplete);
+
+            utils.showToast('已恢复正在进行的测试', 'info');
+            return;
+        }
+    } catch (error) {
+        console.error('[恢复测试] 检查后端状态失败:', error);
+    }
+
+    // 2. 检查sessionStorage中是否有保存的状态（作为备用）
+    try {
+        const savedState = sessionStorage.getItem(TEST_STATE_KEY);
+        if (savedState) {
+            const state = JSON.parse(savedState);
+
+            // 检查状态是否过期（超过30分钟视为过期）
+            const savedTime = new Date(state.savedAt).getTime();
+            const now = Date.now();
+            if (now - savedTime > 30 * 60 * 1000) {
+                console.log('[恢复测试] 保存的状态已过期，清除');
+                sessionStorage.removeItem(TEST_STATE_KEY);
+                return;
+            }
+
+            // 验证任务是否仍在运行
+            const statusResponse = await fetch(`/api/tests/status/${state.taskId}`);
+            if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData.status === 'running') {
+                    console.log('[恢复测试] 从sessionStorage恢复测试:', state.taskId);
+
+                    currentTaskId = state.taskId;
+                    currentTestMode = state.testMode || 'quick';
+                    testStartTime = state.startTime;
+
+                    showTestExecutionCard(true);
+                    utils.pollTaskStatus(currentTaskId, updateTestStatus, onTestComplete);
+
+                    utils.showToast('已恢复正在进行的测试', 'info');
+                } else {
+                    // 任务已完成，清除保存的状态
+                    sessionStorage.removeItem(TEST_STATE_KEY);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('[恢复测试] 恢复状态失败:', error);
+        sessionStorage.removeItem(TEST_STATE_KEY);
+    }
+}
+
+// 🔧 新增: 保存测试状态到sessionStorage
+function saveTestState() {
+    if (!currentTaskId) return;
+
+    const state = {
+        taskId: currentTaskId,
+        testMode: currentTestMode,
+        startTime: testStartTime,
+        savedAt: new Date().toISOString()
+    };
+
+    sessionStorage.setItem(TEST_STATE_KEY, JSON.stringify(state));
+    console.log('[状态保存] 已保存测试状态:', state);
+}
+
+// 🔧 新增: 清除保存的测试状态
+function clearTestState() {
+    sessionStorage.removeItem(TEST_STATE_KEY);
+    console.log('[状态清除] 已清除测试状态');
+}
 
 // 加载商品列表
 async function loadProducts() {
@@ -1160,6 +1269,16 @@ async function stopCurrentTest() {
 
         if (data.success) {
             utils.showToast('测试已停止', 'info');
+
+            // 🔧 新增: 停止微进度动画
+            if (microProgressInterval) {
+                clearInterval(microProgressInterval);
+                microProgressInterval = null;
+            }
+
+            // 🔧 新增: 清除保存的测试状态
+            clearTestState();
+
             hideTestExecutionCard();
 
             // 显示停止状态
@@ -1176,20 +1295,36 @@ async function stopCurrentTest() {
 }
 
 // 显示测试执行卡片
-function showTestExecutionCard() {
+function showTestExecutionCard(isRestoreMode = false) {
     const card = document.getElementById('test-execution-card');
     card.style.display = 'block';
 
-    // 重置进度条状态变量
-    currentDisplayProgress = 0;
-    targetProgress = 0;
-    totalExpectedSteps = 0;
-    totalExpectedProducts = 0;
+    // 只在非恢复模式下重置进度条状态
+    if (!isRestoreMode) {
+        // 重置进度条状态变量
+        currentDisplayProgress = 0;
+        targetProgress = 0;
+        totalExpectedSteps = 0;
+        totalExpectedProducts = 0;
+        lastKnownProgress = 0;
+    }
 
     // 取消正在进行的动画
     if (progressAnimationFrame) {
         cancelAnimationFrame(progressAnimationFrame);
         progressAnimationFrame = null;
+    }
+
+    // 停止初始化进度动画（如果有）
+    if (initProgressInterval) {
+        clearInterval(initProgressInterval);
+        initProgressInterval = null;
+    }
+
+    // 停止微进度动画（如果有）
+    if (microProgressInterval) {
+        clearInterval(microProgressInterval);
+        microProgressInterval = null;
     }
 
     // 重置进度条样式和内容
@@ -1198,32 +1333,142 @@ function showTestExecutionCard() {
 
     // 移除所有可能的状态类
     progressBar.className = 'progress-bar progress-bar-enhanced';
-    progressBar.style.width = '0%';
-    progressText.textContent = '0%';
+
+    if (!isRestoreMode) {
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+    }
 
     // 重置详细信息
     const detailLeft = document.getElementById('progress-detail-left');
     const detailRight = document.getElementById('progress-detail-right');
-    if (detailLeft) detailLeft.textContent = '';
+    if (detailLeft) detailLeft.textContent = isRestoreMode ? '恢复中...' : '准备中...';
     if (detailRight) detailRight.textContent = '';
 
     // 重置spinner
     const spinner = document.getElementById('test-spinner');
     if (spinner) spinner.style.display = '';
 
-    testStartTime = Date.now();
+    // 恢复模式下使用保存的startTime，否则使用当前时间
+    if (!isRestoreMode) {
+        testStartTime = Date.now();
+    }
+
     updateElapsedTime();
+    if (timerInterval) clearInterval(timerInterval);
     timerInterval = setInterval(updateElapsedTime, 1000);
 
     // 不预先显示所有步骤，只显示空的步骤容器
-    // 步骤将在执行时逐步显示
     const container = document.getElementById('test-steps-container');
     const stepsList = document.getElementById('test-steps-list');
     container.style.display = 'block';
-    stepsList.innerHTML = '<div class="text-muted text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>正在初始化测试...</div>';
+    stepsList.innerHTML = `<div class="text-muted text-center py-3"><span class="spinner-border spinner-border-sm me-2"></span>${isRestoreMode ? '正在恢复测试状态...' : '正在初始化测试...'}</div>`;
 
     // 滚动到执行卡片
     card.scrollIntoView({ behavior: 'smooth' });
+
+    // 只在非恢复模式下启动初始化阶段的进度动画
+    if (!isRestoreMode) {
+        startInitializationProgress();
+    }
+
+    // 🔧 新增: 保存测试状态
+    saveTestState();
+
+    // 🔧 新增: 启动微进度动画
+    startMicroProgressAnimation();
+}
+
+// 初始化阶段进度动画定时器
+let initProgressInterval = null;
+let initProgressTarget = 8; // 初始化阶段最大推进到8%
+let initProgressStartTime = null; // 初始化开始时间
+const INIT_PROGRESS_TIMEOUT = 10000; // 10秒超时：如果10秒内真实进度还没开始，停止初始化动画
+
+// 启动初始化进度动画
+function startInitializationProgress() {
+    initProgressStartTime = Date.now();
+    let initProgress = 0;
+
+    initProgressInterval = setInterval(() => {
+        // 检查是否已超时
+        const elapsed = Date.now() - initProgressStartTime;
+        if (elapsed > INIT_PROGRESS_TIMEOUT) {
+            // 超时：停止初始化动画，等待真实数据
+            clearInterval(initProgressInterval);
+            initProgressInterval = null;
+            console.log('[进度条] 初始化动画超时，等待真实进度数据');
+            return;
+        }
+
+        // 如果真实进度已经开始（targetProgress > initProgressTarget），停止初始化动画
+        if (targetProgress > initProgressTarget) {
+            clearInterval(initProgressInterval);
+            initProgressInterval = null;
+            console.log('[进度条] 真实进度已到达，停止初始化动画');
+            return;
+        }
+
+        // 缓慢增加到initProgressTarget
+        if (initProgress < initProgressTarget) {
+            // 越接近目标越慢（模拟加载效果）
+            const remaining = initProgressTarget - initProgress;
+            const increment = Math.max(0.1, remaining * 0.08);
+            initProgress = Math.min(initProgressTarget, initProgress + increment);
+
+            // 调用setProgressWithAnimation，由于"只进不退"机制，进度只会往前走
+            setProgressWithAnimation(initProgress);
+        }
+    }, 200);
+}
+
+// 🔧 新增: 启动步骤间微进度动画 - 在步骤执行过程中平滑推进进度条
+function startMicroProgressAnimation() {
+    // 清除已有的微进度动画
+    if (microProgressInterval) {
+        clearInterval(microProgressInterval);
+    }
+
+    microProgressInterval = setInterval(() => {
+        // 如果没有目标进度或已达到99%以上，不再微调
+        if (targetProgress >= 99) {
+            return;
+        }
+
+        // 计算当前可以微推进的最大值
+        // 基于lastKnownProgress（上次真实进度）+ microProgressMaxGap
+        const maxMicroProgress = lastKnownProgress + microProgressMaxGap;
+
+        // 当前显示进度如果已经接近最大值，减缓推进速度
+        if (currentDisplayProgress >= maxMicroProgress - 1) {
+            // 接近最大值时，极慢推进或停止
+            return;
+        }
+
+        // 计算微增量（距离最大值越近，增量越小）
+        const distanceToMax = maxMicroProgress - currentDisplayProgress;
+        const dynamicIncrement = Math.min(microProgressIncrement, distanceToMax * 0.05);
+
+        if (dynamicIncrement < 0.05) {
+            return; // 增量太小，跳过
+        }
+
+        // 微调目标进度
+        const newMicroTarget = currentDisplayProgress + dynamicIncrement;
+
+        // 确保不超过最大限制
+        if (newMicroTarget < maxMicroProgress && newMicroTarget > targetProgress) {
+            // 直接更新显示进度（不更新targetProgress，因为那是真实进度）
+            currentDisplayProgress = newMicroTarget;
+
+            const progressBar = document.getElementById('test-progress-bar');
+            const progressText = document.getElementById('test-progress-text');
+            if (progressBar && progressText) {
+                progressBar.style.width = currentDisplayProgress + '%';
+                progressText.textContent = Math.round(currentDisplayProgress) + '%';
+            }
+        }
+    }, 50); // 每50ms微调一次（更频繁的更新实现更平滑效果）
 }
 
 // 隐藏测试执行卡片
@@ -1233,6 +1478,18 @@ function hideTestExecutionCard() {
         clearInterval(timerInterval);
         timerInterval = null;
     }
+    // 清理初始化进度动画
+    if (initProgressInterval) {
+        clearInterval(initProgressInterval);
+        initProgressInterval = null;
+    }
+    // 🔧 新增: 清理微进度动画
+    if (microProgressInterval) {
+        clearInterval(microProgressInterval);
+        microProgressInterval = null;
+    }
+    // 重置初始化开始时间
+    initProgressStartTime = null;
 }
 
 // 更新测试状态
@@ -1693,6 +1950,15 @@ function toggleTestLogs() {
 
 // 测试完成
 function onTestComplete(result) {
+    // 🔧 新增: 停止微进度动画
+    if (microProgressInterval) {
+        clearInterval(microProgressInterval);
+        microProgressInterval = null;
+    }
+
+    // 🔧 新增: 清除保存的测试状态
+    clearTestState();
+
     // 延迟隐藏执行卡片，让用户看到完成效果（绿色脉动）
     setTimeout(() => {
         hideTestExecutionCard();
@@ -1910,32 +2176,34 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-// 进度条平滑插值动画函数
+// 进度条平滑插值动画函数 - 使用CSS过渡实现完全平滑
 function animateProgressBar() {
     const progressBar = document.getElementById('test-progress-bar');
     const progressText = document.getElementById('test-progress-text');
 
     if (!progressBar || !progressText) return;
 
-    // 计算插值步长（每帧移动的百分比）
-    // 使用ease-out效果：距离越远速度越快，接近目标时减速
+    // 计算插值步长（使用更小的步长实现更平滑效果）
     const diff = targetProgress - currentDisplayProgress;
-    const step = diff * 0.08; // 每帧移动差值的8%（更平滑）
+    // 使用更小的步长(3%)配合CSS transition实现完全平滑
+    const step = diff * 0.03;
 
     // 当差值足够小时，直接设置为目标值
-    if (Math.abs(diff) < 0.1) {
+    if (Math.abs(diff) < 0.05) {
         currentDisplayProgress = targetProgress;
     } else {
         currentDisplayProgress += step;
     }
 
-    // 更新UI - 保留一位小数用于内部计算，显示取整
+    // 直接设置宽度，让CSS transition处理平滑效果
+    progressBar.style.width = targetProgress + '%';
+
+    // 文字数值使用当前插值显示，避免跳动
     const displayValue = Math.round(currentDisplayProgress);
-    progressBar.style.width = currentDisplayProgress + '%';
     progressText.textContent = displayValue + '%';
 
-    // 如果还没到达目标，继续动画
-    if (Math.abs(targetProgress - currentDisplayProgress) >= 0.1) {
+    // 如果还没到达目标，继续动画（用于文字数值的平滑更新）
+    if (Math.abs(targetProgress - currentDisplayProgress) >= 0.05) {
         progressAnimationFrame = requestAnimationFrame(animateProgressBar);
     } else {
         progressAnimationFrame = null;
@@ -1943,8 +2211,21 @@ function animateProgressBar() {
 }
 
 // 设置目标进度并启动动画
-function setProgressWithAnimation(percentage) {
-    targetProgress = Math.min(100, Math.max(0, percentage));
+// 🔧 修复: 进度条只能往前走，不能回退
+function setProgressWithAnimation(percentage, forceUpdate = false) {
+    const newTarget = Math.min(100, Math.max(0, percentage));
+
+    // 核心修复: 只有新进度 > 当前目标进度时才更新（确保只进不退）
+    // forceUpdate 用于特殊情况（如重置进度条）
+    if (!forceUpdate && newTarget <= targetProgress) {
+        return; // 忽略回退请求
+    }
+
+    targetProgress = newTarget;
+
+    // 🔧 新增: 更新lastKnownProgress用于微进度动画的边界计算
+    // 当收到新的真实进度时，更新lastKnownProgress
+    lastKnownProgress = newTarget;
 
     // 如果动画未运行，启动动画
     if (!progressAnimationFrame) {

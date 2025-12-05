@@ -208,9 +208,40 @@ async def main():
     report_file = PROJECT_ROOT / "reports" / f"batch_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     report_file.parent.mkdir(exist_ok=True)
 
+    # 构建测试配置描述
+    test_scope_desc = ""
+    if args.product_ids:
+        # 自定义多选
+        if len(selected_products) == 1:
+            test_scope_desc = f"单个商品: {selected_products[0]['name'][:30]}"
+        else:
+            test_scope_desc = f"自定义选择 {len(selected_products)} 个商品"
+    elif args.category:
+        test_scope_desc = f"分类: {args.category}"
+    elif args.priority:
+        test_scope_desc = f"优先级: {args.priority}"
+    else:
+        test_scope_desc = f"所有商品 ({len(selected_products)} 个)"
+
     with open(report_file, 'w', encoding='utf-8') as f:
         json.dump({
             'timestamp': datetime.now().isoformat(),
+            'test_mode': args.mode,
+            'test_scope': test_scope_desc,
+            'test_config': {
+                'mode': args.mode,
+                'priority': args.priority,
+                'category': args.category,
+                'product_ids': args.product_ids.split(',') if args.product_ids else None,
+                'product_count': len(selected_products)
+            },
+            'summary': {
+                'total': len(results),
+                'passed': passed_count,
+                'failed': failed_count,
+                'error': error_count,
+                'duration': total_duration
+            },
             'total': len(results),
             'passed': passed_count,
             'failed': failed_count,
