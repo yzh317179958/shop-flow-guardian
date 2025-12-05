@@ -607,6 +607,9 @@ function updateTestSteps(steps) {
                    </div>`
                 : '';
 
+            // 🔧 改进: 根因分析支持换行和格式化显示
+            const rootCauseHtml = formatRootCause(details.root_cause || 'N/A');
+
             issueDetailsHtml = `
                 <div class="alert alert-danger mt-2 mb-0" style="background-color: #f8d7da; border-left: 4px solid #dc3545;">
                     <div class="d-flex align-items-start">
@@ -615,15 +618,16 @@ function updateTestSteps(steps) {
                             <strong>发现Bug:</strong> ${escapeHtml(naturalExplanation)}
                             <div class="mt-2">
                                 <a class="text-decoration-none small" data-bs-toggle="collapse" href="#${stepId}" role="button" aria-expanded="false">
-                                    <i class="bi bi-chevron-down"></i> 查看详细技术信息
+                                    <i class="bi bi-chevron-down"></i> 查看详细技术信息与修复建议
                                 </a>
                             </div>
                             <div class="collapse mt-2" id="${stepId}">
                                 <div class="card card-body bg-light small py-2">
-                                    <div class="mb-1"><strong>场景:</strong> ${escapeHtml(details.scenario || 'N/A')}</div>
-                                    <div class="mb-1"><strong>操作:</strong> ${escapeHtml(details.operation || 'N/A')}</div>
-                                    <div class="mb-1"><strong>问题:</strong> ${escapeHtml(details.problem || 'N/A')}</div>
-                                    <div class="mb-1"><strong>根因:</strong> ${escapeHtml(details.root_cause || 'N/A')}</div>
+                                    <div class="mb-1"><strong>📍 场景:</strong> ${escapeHtml(details.scenario || 'N/A')}</div>
+                                    <div class="mb-1"><strong>🖱️ 操作:</strong> ${escapeHtml(details.operation || 'N/A')}</div>
+                                    <div class="mb-1"><strong>❌ 问题:</strong> ${escapeHtml(details.problem || 'N/A')}</div>
+                                    <div class="mb-2"><strong>🔍 根因分析:</strong></div>
+                                    <div class="root-cause-box" style="background: #fff3cd; border-radius: 4px; padding: 10px; margin-bottom: 8px; white-space: pre-wrap; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.5;">${rootCauseHtml}</div>
                                     ${jsErrorsHtml}
                                 </div>
                             </div>
@@ -822,6 +826,9 @@ function showDetailedResults(result) {
                            </div>`
                         : '';
 
+                    // 🔧 改进: 根因分析支持换行和格式化显示
+                    const rootCauseHtml = formatRootCause(details.root_cause || 'N/A');
+
                     issueDetailsHtml = `
                         <div class="alert alert-danger mt-2 mb-0" style="background-color: #f8d7da; border-left: 4px solid #dc3545;">
                             <div class="d-flex align-items-start">
@@ -830,15 +837,16 @@ function showDetailedResults(result) {
                                     <strong>发现Bug:</strong> ${escapeHtml(naturalExplanation)}
                                     <div class="mt-2">
                                         <a class="text-decoration-none small" data-bs-toggle="collapse" href="#${resultStepId}" role="button" aria-expanded="false">
-                                            <i class="bi bi-chevron-down"></i> 查看详细技术信息
+                                            <i class="bi bi-chevron-down"></i> 查看详细技术信息与修复建议
                                         </a>
                                     </div>
                                     <div class="collapse mt-2" id="${resultStepId}">
                                         <div class="card card-body bg-light small py-2">
-                                            <div class="mb-1"><strong>场景:</strong> ${escapeHtml(details.scenario || 'N/A')}</div>
-                                            <div class="mb-1"><strong>操作:</strong> ${escapeHtml(details.operation || 'N/A')}</div>
-                                            <div class="mb-1"><strong>问题:</strong> ${escapeHtml(details.problem || 'N/A')}</div>
-                                            <div class="mb-1"><strong>根因:</strong> ${escapeHtml(details.root_cause || 'N/A')}</div>
+                                            <div class="mb-1"><strong>📍 场景:</strong> ${escapeHtml(details.scenario || 'N/A')}</div>
+                                            <div class="mb-1"><strong>🖱️ 操作:</strong> ${escapeHtml(details.operation || 'N/A')}</div>
+                                            <div class="mb-1"><strong>❌ 问题:</strong> ${escapeHtml(details.problem || 'N/A')}</div>
+                                            <div class="mb-2"><strong>🔍 根因分析:</strong></div>
+                                            <div class="root-cause-box" style="background: #fff3cd; border-radius: 4px; padding: 10px; margin-bottom: 8px; white-space: pre-wrap; font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; line-height: 1.5;">${rootCauseHtml}</div>
                                             ${jsErrorsHtml}
                                         </div>
                                     </div>
@@ -901,6 +909,25 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// 🔧 格式化根因分析内容，支持换行和特殊标记
+function formatRootCause(rootCause) {
+    if (!rootCause) return 'N/A';
+
+    // 先转义HTML
+    let html = escapeHtml(rootCause);
+
+    // 将换行符转换为<br>
+    html = html.replace(/\n/g, '<br>');
+
+    // 高亮【xxx】标记
+    html = html.replace(/【([^】]+)】/g, '<strong style="color: #d63384;">【$1】</strong>');
+
+    // 高亮 • 列表项
+    html = html.replace(/•/g, '<span style="color: #0d6efd;">•</span>');
+
+    return html;
 }
 
 // 🔧 生成自然语言的问题解释（包含具体的网页、操作、问题描述）

@@ -32,6 +32,148 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def analyze_js_error_root_cause(js_errors: List[str]) -> str:
+    """
+    智能分析JavaScript错误，生成开发者友好的根因说明
+
+    Args:
+        js_errors: JavaScript错误列表
+
+    Returns:
+        详细的根因分析说明，便于开发人员定位问题
+    """
+    if not js_errors:
+        return "未捕获到具体的JavaScript错误信息"
+
+    # 合并所有错误进行分析
+    all_errors = " ".join(js_errors).lower()
+    first_error = js_errors[0]
+
+    # 1. URI/URL 编解码错误
+    if "uri malformed" in all_errors or "uricomponent" in all_errors:
+        return (
+            "【URI编解码错误】代码调用了 decodeURIComponent() 或 encodeURIComponent() 函数，"
+            "但传入的参数值无效。常见原因：\n"
+            "   • 从 cookie/localStorage 读取的值为 null 或 undefined\n"
+            "   • URL参数包含未正确编码的特殊字符（如 %、&、=）\n"
+            "   • 字符串拼接时产生了非法的URI格式\n"
+            "   【建议修复】检查 decodeURIComponent 调用前的参数校验，添加 try-catch 或空值判断"
+        )
+
+    # 2. 空指针/未定义错误
+    if "cannot read property" in all_errors or "cannot read properties" in all_errors:
+        # 提取属性名
+        import re
+        prop_match = re.search(r"cannot read propert(?:y|ies) ['\"]?(\w+)['\"]? of (null|undefined)", all_errors)
+        if prop_match:
+            prop_name = prop_match.group(1)
+            null_type = prop_match.group(2)
+            return (
+                f"【空指针错误】代码尝试访问 {null_type} 对象的 '{prop_name}' 属性。常见原因：\n"
+                f"   • DOM查询 (querySelector/getElementById) 未找到目标元素，返回了 {null_type}\n"
+                f"   • 异步数据未加载完成就尝试访问\n"
+                f"   • 对象属性链中某个中间值为 {null_type}\n"
+                f"   【建议修复】在访问 .{prop_name} 前添加空值检查：if (obj && obj.{prop_name})"
+            )
+        return (
+            "【空指针错误】代码尝试访问 null 或 undefined 对象的属性。\n"
+            "   【建议修复】检查变量是否正确初始化，添加空值判断"
+        )
+
+    # 3. 未定义变量/函数错误
+    if "is not defined" in all_errors:
+        import re
+        var_match = re.search(r"(\w+) is not defined", all_errors)
+        if var_match:
+            var_name = var_match.group(1)
+            return (
+                f"【变量未定义】代码引用了未声明的变量或函数 '{var_name}'。常见原因：\n"
+                f"   • JavaScript文件加载顺序错误，'{var_name}' 所在脚本未加载\n"
+                f"   • 变量名拼写错误\n"
+                f"   • 变量在其他作用域中声明，当前作用域无法访问\n"
+                f"   【建议修复】检查 '{var_name}' 的定义位置和脚本加载顺序"
+            )
+
+    # 4. 类型错误
+    if "is not a function" in all_errors:
+        import re
+        func_match = re.search(r"(\w+) is not a function", all_errors)
+        if func_match:
+            func_name = func_match.group(1)
+            return (
+                f"【类型错误】代码尝试将 '{func_name}' 作为函数调用，但它不是函数。常见原因：\n"
+                f"   • '{func_name}' 被错误地赋值为非函数类型\n"
+                f"   • 对象方法名拼写错误\n"
+                f"   • 库/插件未正确加载，导致方法不存在\n"
+                f"   【建议修复】检查 '{func_name}' 的类型和来源"
+            )
+
+    # 5. 语法错误
+    if "syntaxerror" in all_errors or "unexpected token" in all_errors:
+        return (
+            "【语法错误】JavaScript代码存在语法问题，无法解析执行。常见原因：\n"
+            "   • JSON格式错误（缺少引号、多余逗号等）\n"
+            "   • 括号/大括号不匹配\n"
+            "   • 模板字符串或正则表达式格式错误\n"
+            "   【建议修复】使用浏览器开发者工具定位具体语法错误位置"
+        )
+
+    # 6. 网络请求错误
+    if "fetch" in all_errors or "network" in all_errors or "xhr" in all_errors:
+        return (
+            "【网络请求错误】AJAX/Fetch请求失败。常见原因：\n"
+            "   • 接口URL错误或服务端未响应\n"
+            "   • 跨域(CORS)问题\n"
+            "   • 请求参数格式错误\n"
+            "   【建议修复】检查网络请求的URL、参数和服务端响应"
+        )
+
+    # 7. DOM操作错误
+    if "queryselector" in all_errors or "getelementby" in all_errors or "appendchild" in all_errors:
+        return (
+            "【DOM操作错误】操作DOM元素时发生错误。常见原因：\n"
+            "   • 选择器未匹配到任何元素\n"
+            "   • 在DOM未完全加载时就执行了操作\n"
+            "   • 元素已被移除或不在文档中\n"
+            "   【建议修复】确保DOM操作在 DOMContentLoaded 事件后执行，并检查元素是否存在"
+        )
+
+    # 8. 事件处理错误
+    if "addeventlistener" in all_errors or "event" in all_errors:
+        return (
+            "【事件处理错误】事件绑定或处理过程中发生错误。常见原因：\n"
+            "   • 事件目标元素不存在\n"
+            "   • 事件处理函数中的this指向错误\n"
+            "   • 事件对象属性访问错误\n"
+            "   【建议修复】检查事件绑定的目标元素和处理函数逻辑"
+        )
+
+    # 9. JSON解析错误
+    if "json" in all_errors and ("parse" in all_errors or "stringify" in all_errors):
+        return (
+            "【JSON解析错误】JSON数据格式错误，无法解析。常见原因：\n"
+            "   • 服务端返回的不是有效JSON格式\n"
+            "   • JSON字符串中包含非法字符\n"
+            "   • 尝试解析 undefined 或空字符串\n"
+            "   【建议修复】验证JSON数据来源，添加解析前的格式检查"
+        )
+
+    # 10. 默认情况：提取关键信息
+    # 尝试提取错误类型
+    error_type = "未知"
+    if "typeerror" in all_errors:
+        error_type = "TypeError（类型错误）"
+    elif "referenceerror" in all_errors:
+        error_type = "ReferenceError（引用错误）"
+    elif "rangeerror" in all_errors:
+        error_type = "RangeError（范围错误）"
+
+    return (
+        f"【{error_type}】{first_error[:150]}\n"
+        f"   【建议修复】使用浏览器开发者工具(F12)的Console面板查看完整错误堆栈，定位具体代码位置"
+    )
+
+
 class TestStep:
     """测试步骤记录"""
 
@@ -1058,23 +1200,33 @@ class ProductTester:
                                     # 🚨 Bug检测!
                                     cart_bug_detected = True
 
-                                    if new_js_errors or new_console_errors:
+                                    all_js_errors = new_js_errors + new_console_errors
+                                    if all_js_errors:
+                                        # 使用智能根因分析
+                                        root_cause_analysis = analyze_js_error_root_cause(all_js_errors)
                                         bug_details = {
-                                            "scenario": "用户在购物车页面尝试调整商品数量",
-                                            "operation": f"点击数量加号按钮{', 期望数量从 ' + current_qty + ' 增加' if current_qty else ''}",
-                                            "problem": f"数量未发生变化{' (保持为 ' + new_qty + ')' if new_qty else ''},同时触发了JavaScript错误",
-                                            "root_cause": "购物车UI更新逻辑存在Bug：" + (new_js_errors[0][:100] if new_js_errors else "未知错误"),
-                                            "js_errors": new_js_errors + new_console_errors
+                                            "scenario": "用户在购物车页面(fiido.com/cart)尝试调整商品数量",
+                                            "operation": f"点击数量加号(+)按钮{', 期望数量从 ' + current_qty + ' 增加到 ' + str(int(current_qty)+1) if current_qty else ''}",
+                                            "problem": f"数量未发生变化{' (保持为 ' + new_qty + ')' if new_qty else ''}，同时触发了JavaScript错误",
+                                            "root_cause": root_cause_analysis,
+                                            "js_errors": all_js_errors
                                         }
                                         logger.info(f"⚠️  检测到购物车Bug: 数量未变化且有JS错误")
                                         for err in new_js_errors[:3]:
                                             logger.info(f"     JS错误: {err[:100]}")
                                     else:
                                         bug_details = {
-                                            "scenario": "用户在购物车页面尝试调整商品数量",
-                                            "operation": f"点击数量加号按钮{', 期望数量从 ' + current_qty + ' 增加' if current_qty else ''}",
-                                            "problem": f"数量未发生变化{' (保持为 ' + new_qty + ')' if new_qty else ''},UI按钮存在但功能不工作",
-                                            "root_cause": "购物车数量调整功能存在Bug：可能是事件绑定失败、逻辑错误或DOM更新失败",
+                                            "scenario": "用户在购物车页面(fiido.com/cart)尝试调整商品数量",
+                                            "operation": f"点击数量加号(+)按钮{', 期望数量从 ' + current_qty + ' 增加到 ' + str(int(current_qty)+1) if current_qty else ''}",
+                                            "problem": f"数量未发生变化{' (保持为 ' + new_qty + ')' if new_qty else ''}，UI按钮存在但点击无响应",
+                                            "root_cause": (
+                                                "【事件绑定问题】加号按钮的点击事件可能未正确绑定或被阻止。常见原因：\n"
+                                                "   • 按钮的click事件处理器未绑定或绑定到错误元素\n"
+                                                "   • 事件被 stopPropagation() 或 preventDefault() 阻止\n"
+                                                "   • JavaScript代码执行顺序问题，事件绑定代码未执行\n"
+                                                "   • 存在覆盖在按钮上的透明遮罩层\n"
+                                                "   【建议修复】检查按钮的事件绑定代码，确认click事件处理器正确执行"
+                                            ),
                                             "js_errors": []
                                         }
                                         logger.info(f"⚠️  检测到购物车Bug: UI有加号按钮但点击无效")
