@@ -98,31 +98,18 @@
     margin-bottom: 20px;
 }
 
-/* 批量操作栏 */
-.batch-action-bar {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 12px;
-    padding: 12px 20px;
-    color: white;
+/* 批量操作栏（内联样式） */
+.batch-action-inline {
     display: none;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    animation: slideDown 0.3s ease;
+    animation: fadeIn 0.2s ease;
 }
-@keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-.batch-action-bar.show {
+.batch-action-inline.show {
     display: flex;
 }
-.batch-action-bar .btn {
-    border: 1px solid rgba(255,255,255,0.3);
-    color: white;
-}
-.batch-action-bar .btn:hover {
-    background: rgba(255,255,255,0.2);
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* 分页样式 */
@@ -201,100 +188,271 @@
     font-weight: 600;
 }
 
-/* AI分析内容Markdown渲染样式 */
+/* AI分析内容Markdown渲染样式 - 优化版 v2.0 */
 .ai-analysis-content {
     line-height: 1.8;
     font-size: 0.95rem;
-}
-.ai-analysis-content h1 {
-    font-size: 1.5rem;
     color: #333;
-    border-bottom: 2px solid #667eea;
-    padding-bottom: 8px;
-    margin: 24px 0 16px 0;
+}
+
+/* 标题样式 */
+.ai-analysis-content h1 {
+    font-size: 1.6rem;
+    color: #1a1a2e;
+    border-bottom: 3px solid #667eea;
+    padding-bottom: 10px;
+    margin: 28px 0 18px 0;
+    font-weight: 700;
+}
+.ai-analysis-content h1:first-child {
+    margin-top: 0;
 }
 .ai-analysis-content h2 {
-    font-size: 1.3rem;
-    color: #444;
-    border-bottom: 1px solid #e9ecef;
-    padding-bottom: 6px;
-    margin: 20px 0 12px 0;
+    font-size: 1.35rem;
+    color: #2d2d44;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 8px;
+    margin: 24px 0 14px 0;
+    font-weight: 600;
 }
 .ai-analysis-content h3 {
     font-size: 1.15rem;
+    color: #444;
+    margin: 20px 0 12px 0;
+    font-weight: 600;
+}
+.ai-analysis-content h4 {
+    font-size: 1.05rem;
     color: #555;
     margin: 16px 0 10px 0;
+    font-weight: 600;
 }
-.ai-analysis-content h4, .ai-analysis-content h5 {
+.ai-analysis-content h5, .ai-analysis-content h6 {
     font-size: 1rem;
     color: #666;
-    margin: 12px 0 8px 0;
+    margin: 14px 0 8px 0;
+    font-weight: 600;
 }
+
+/* 段落和文本 */
 .ai-analysis-content p {
-    margin-bottom: 12px;
+    margin-bottom: 14px;
+    text-align: justify;
 }
+.ai-analysis-content strong {
+    color: #1a1a2e;
+    font-weight: 600;
+}
+.ai-analysis-content em {
+    color: #555;
+    font-style: italic;
+}
+
+/* 列表样式 */
 .ai-analysis-content ul, .ai-analysis-content ol {
-    padding-left: 24px;
-    margin-bottom: 12px;
+    padding-left: 28px;
+    margin-bottom: 14px;
 }
 .ai-analysis-content li {
-    margin-bottom: 6px;
+    margin-bottom: 8px;
+    line-height: 1.7;
 }
+.ai-analysis-content li > ul, .ai-analysis-content li > ol {
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+/* 代码样式 */
 .ai-analysis-content code {
-    background: #f8f9fa;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    color: #e83e8c;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.88em;
+    color: #d63384;
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    border: 1px solid #dee2e6;
 }
 .ai-analysis-content pre {
-    background: #f8f9fa;
-    padding: 12px;
-    border-radius: 8px;
+    background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%);
+    padding: 16px 20px;
+    border-radius: 12px;
     overflow-x: auto;
-    margin-bottom: 16px;
+    margin: 16px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 .ai-analysis-content pre code {
     background: transparent;
     padding: 0;
-    color: #333;
+    color: #e9ecef;
+    border: none;
+    font-size: 0.9em;
+    line-height: 1.6;
 }
+
+/* 表格样式 - 优化版 */
 .ai-analysis-content table {
     width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 16px;
-}
-.ai-analysis-content th, .ai-analysis-content td {
-    border: 1px solid #dee2e6;
-    padding: 10px 12px;
-    text-align: left;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 18px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 .ai-analysis-content th {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     font-weight: 600;
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 0.9rem;
+    letter-spacing: 0.3px;
+}
+.ai-analysis-content td {
+    border-bottom: 1px solid #e9ecef;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.9rem;
+}
+.ai-analysis-content tr:last-child td {
+    border-bottom: none;
 }
 .ai-analysis-content tr:nth-child(even) {
     background: #f8f9fa;
 }
+.ai-analysis-content tr:hover {
+    background: #f0f4ff;
+}
+
+/* 引用块样式 - 优化版 */
 .ai-analysis-content blockquote {
     border-left: 4px solid #667eea;
-    padding-left: 16px;
-    margin: 16px 0;
-    color: #666;
-    font-style: italic;
+    padding: 16px 20px;
+    margin: 18px 0;
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+    border-radius: 0 12px 12px 0;
+    font-style: normal;
+    color: #444;
 }
+.ai-analysis-content blockquote p {
+    margin-bottom: 0;
+}
+.ai-analysis-content blockquote p:not(:last-child) {
+    margin-bottom: 10px;
+}
+
+/* 分隔线 */
 .ai-analysis-content hr {
     border: none;
-    border-top: 1px solid #e9ecef;
-    margin: 20px 0;
+    border-top: 2px solid #e9ecef;
+    margin: 28px 0;
 }
-.ai-analysis-content strong {
-    color: #333;
+
+/* 链接样式 */
+.ai-analysis-content a {
+    color: #667eea;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+.ai-analysis-content a:hover {
+    color: #764ba2;
+    border-bottom-color: #764ba2;
+}
+
+/* 状态标识样式 */
+.ai-analysis-content .status-passed,
+.ai-analysis-content td:contains('✅'),
+.ai-analysis-content td:contains('passed') {
+    color: #28a745;
+}
+.ai-analysis-content .status-failed,
+.ai-analysis-content td:contains('❌'),
+.ai-analysis-content td:contains('failed') {
+    color: #dc3545;
+}
+.ai-analysis-content .status-skipped,
+.ai-analysis-content td:contains('⊘'),
+.ai-analysis-content td:contains('skipped') {
+    color: #ffc107;
+}
+
+/* 优先级标识 */
+.ai-analysis-content h3:contains('P0'),
+.ai-analysis-content h4:contains('P0') {
+    color: #dc3545;
+}
+.ai-analysis-content h3:contains('P1'),
+.ai-analysis-content h4:contains('P1') {
+    color: #fd7e14;
+}
+.ai-analysis-content h3:contains('P2'),
+.ai-analysis-content h4:contains('P2') {
+    color: #ffc107;
+}
+
+/* 核心发现卡片样式 */
+.ai-analysis-content > blockquote:first-of-type {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-left-color: #28a745;
+}
+
+/* 健康度评估样式 */
+.ai-analysis-content p:contains('健康度评估') {
     font-weight: 600;
+    padding: 10px 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: inline-block;
 }
-.ai-analysis-content em {
-    color: #666;
+
+/* Emoji 优化显示 */
+.ai-analysis-content {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+    .ai-analysis-content {
+        font-size: 0.9rem;
+    }
+    .ai-analysis-content h1 {
+        font-size: 1.4rem;
+    }
+    .ai-analysis-content h2 {
+        font-size: 1.2rem;
+    }
+    .ai-analysis-content table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    .ai-analysis-content th, .ai-analysis-content td {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+    }
+    .ai-analysis-content pre {
+        padding: 12px 14px;
+    }
+}
+
+/* 打印样式优化 */
+@media print {
+    .ai-analysis-content {
+        font-size: 11pt;
+        line-height: 1.6;
+    }
+    .ai-analysis-content h1 {
+        page-break-after: avoid;
+    }
+    .ai-analysis-content table {
+        page-break-inside: avoid;
+    }
+    .ai-analysis-content pre {
+        background: #f8f9fa !important;
+        color: #333 !important;
+        box-shadow: none;
+    }
 }
 
 /* 趋势图容器 */
@@ -501,32 +659,26 @@
             </div>
         </div>
 
-        <!-- 批量操作栏 -->
-        <div class="batch-action-bar" id="batch-action-bar">
-            <div class="d-flex align-items-center">
-                <span class="me-3">已选择 <strong id="selected-count">0</strong> 个报告</span>
-                <button class="btn btn-sm me-2" onclick="selectAllVisible()">
-                    <i class="bi bi-check-all"></i> 全选本页
-                </button>
-                <button class="btn btn-sm me-2" onclick="selectAll()">
-                    <i class="bi bi-check2-square"></i> 全选所有
-                </button>
-                <button class="btn btn-sm" onclick="clearSelection()">
-                    <i class="bi bi-x-circle"></i> 取消选择
-                </button>
-            </div>
-            <div>
-                <button class="btn btn-sm btn-danger" onclick="deleteSelected()">
-                    <i class="bi bi-trash"></i> 删除选中 (<span id="delete-count">0</span>)
-                </button>
-            </div>
-        </div>
-
         <!-- 报告列表 -->
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-list-ul"></i> 报告列表</span>
-                <span class="badge bg-primary" id="report-count-badge">0 份报告</span>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- 批量操作栏（内联显示） -->
+                    <div class="batch-action-inline" id="batch-action-bar">
+                        <span class="text-muted me-2">已选择 <strong class="text-primary" id="selected-count">0</strong> 个</span>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="selectAllVisible()">
+                            <i class="bi bi-check-all"></i> 全选本页
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="clearSelection()">
+                            <i class="bi bi-x-circle"></i> 取消
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSelected()">
+                            <i class="bi bi-trash"></i> 删除(<span id="delete-count">0</span>)
+                        </button>
+                    </div>
+                    <span class="badge bg-primary" id="report-count-badge">0 份报告</span>
+                </div>
             </div>
             <div class="card-body position-relative" id="reports-list-container">
                 <div class="text-center py-5">
@@ -772,8 +924,10 @@
                 <div class="mb-3">
                     <label class="form-label">AI提供商</label>
                     <select class="form-select" id="ai-provider-select">
-                        <option value="deepseek" selected>DeepSeek (推荐)</option>
-                        <option value="claude" disabled>Claude (暂不可用)</option>
+                        <option value="deepseek" selected>DeepSeek (推荐，免费)</option>
+                        <option value="chatgpt" disabled>ChatGPT (暂不可用)</option>
+                        <option value="doubao" disabled>豆包 (暂不可用)</option>
+                        <option value="qianwen" disabled>通义千问 (暂不可用)</option>
                     </select>
                 </div>
                 <div class="form-check">
@@ -1597,33 +1751,151 @@ function displayAIAnalysis(data) {
             breaks: true,      // 支持 GitHub 风格的换行
             gfm: true,         // 支持 GitHub Flavored Markdown
             headerIds: false,  // 不生成 header ID
-            mangle: false      // 不转义邮箱地址
+            mangle: false,     // 不转义邮箱地址
+            smartLists: true,  // 使用更智能的列表行为
+            smartypants: false // 不使用智能标点
         });
         renderedContent = marked.parse(content);
+
+        // 后处理：为特定内容添加样式类
+        renderedContent = postProcessAIContent(renderedContent);
+
     } catch (e) {
         console.error('Markdown 渲染失败:', e);
         // 降级为纯文本显示
         renderedContent = `<pre style="white-space: pre-wrap;">${escapeHtml(content)}</pre>`;
     }
 
+    // 更新AI提供商标识
+    const provider = data.provider || 'deepseek';
+    const providerName = provider === 'deepseek' ? 'DeepSeek' : provider.charAt(0).toUpperCase() + provider.slice(1);
+
     document.getElementById('ai-report-content').innerHTML = `
         <div class="ai-analysis-content">
             ${renderedContent}
         </div>
+        <div class="text-end mt-4 pt-3 border-top">
+            <small class="text-muted">
+                <i class="bi bi-robot"></i> 由 ${providerName} AI 生成
+                ${data.created_at ? ` · ${new Date(data.created_at).toLocaleString('zh-CN')}` : ''}
+            </small>
+        </div>
     `;
+}
+
+// AI报告内容后处理函数
+function postProcessAIContent(html) {
+    // 创建临时DOM元素进行处理
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+
+    // 1. 为包含状态emoji的表格单元格添加样式类
+    temp.querySelectorAll('td').forEach(td => {
+        const text = td.textContent;
+        if (text.includes('✅') || text.toLowerCase().includes('passed')) {
+            td.classList.add('status-passed');
+        } else if (text.includes('❌') || text.toLowerCase().includes('failed')) {
+            td.classList.add('status-failed');
+        } else if (text.includes('⊘') || text.toLowerCase().includes('skipped')) {
+            td.classList.add('status-skipped');
+        }
+    });
+
+    // 2. 为P0/P1/P2标题添加优先级样式
+    temp.querySelectorAll('h3, h4').forEach(heading => {
+        const text = heading.textContent;
+        if (text.includes('P0')) {
+            heading.classList.add('priority-p0');
+            heading.style.color = '#dc3545';
+        } else if (text.includes('P1')) {
+            heading.classList.add('priority-p1');
+            heading.style.color = '#fd7e14';
+        } else if (text.includes('P2')) {
+            heading.classList.add('priority-p2');
+            heading.style.color = '#6c757d';
+        }
+    });
+
+    // 3. 为"核心发现"部分添加特殊样式
+    temp.querySelectorAll('h2').forEach(h2 => {
+        if (h2.textContent.includes('核心发现') || h2.textContent.includes('30秒速读')) {
+            // 找到紧随其后的blockquote或段落
+            let next = h2.nextElementSibling;
+            if (next && next.tagName === 'BLOCKQUOTE') {
+                next.classList.add('core-finding');
+                next.style.background = 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)';
+                next.style.borderLeftColor = '#28a745';
+            }
+        }
+    });
+
+    // 4. 为健康度评估添加徽章样式
+    temp.querySelectorAll('p, strong').forEach(el => {
+        if (el.textContent.includes('健康度评估')) {
+            const text = el.innerHTML;
+            if (text.includes('健康') && text.includes('✅')) {
+                el.innerHTML = text.replace('✅ 健康', '<span class="badge bg-success">✅ 健康</span>');
+            } else if (text.includes('需关注') && text.includes('⚠️')) {
+                el.innerHTML = text.replace('⚠️ 需关注', '<span class="badge bg-warning text-dark">⚠️ 需关注</span>');
+            } else if (text.includes('需立即处理') && text.includes('🚨')) {
+                el.innerHTML = text.replace('🚨 需立即处理', '<span class="badge bg-danger">🚨 需立即处理</span>');
+            }
+        }
+    });
+
+    // 5. 为行动清单添加图标增强
+    temp.querySelectorAll('h3').forEach(h3 => {
+        const text = h3.textContent;
+        if (text.includes('今日必做') || text.includes('🔴')) {
+            h3.style.color = '#dc3545';
+        } else if (text.includes('本周完成') || text.includes('🟡')) {
+            h3.style.color = '#fd7e14';
+        } else if (text.includes('建议排查') || text.includes('🟢')) {
+            h3.style.color = '#28a745';
+        }
+    });
+
+    return temp.innerHTML;
 }
 
 function generateNewAIReport() {
     // 填充报告选择器
     const select = document.getElementById('ai-report-source');
-    select.innerHTML = '<option value="latest">最新报告</option>';
 
-    // 添加所有报告选项
-    allReports.slice(0, 20).forEach(report => {
-        const displayName = getReportDisplayName(report);
+    // 如果没有报告，显示提示
+    if (!allReports || allReports.length === 0) {
+        select.innerHTML = '<option value="" disabled selected>暂无可分析的报告</option>';
+        const modal = new bootstrap.Modal(document.getElementById('generateAIModal'));
+        modal.show();
+        return;
+    }
+
+    // 获取最新报告
+    const latestReport = allReports[0]; // allReports 已按时间倒序排列
+    const latestTitle = getReportTitleWithId(latestReport);
+
+    // 清空并重新填充选项
+    select.innerHTML = '';
+
+    // 添加"最新报告"选项，但 value 使用实际的报告ID
+    const latestOption = document.createElement('option');
+    latestOption.value = latestReport.id;  // 使用实际ID而非"latest"
+    latestOption.textContent = `📌 最新: ${latestTitle}`;
+    latestOption.selected = true;
+    select.appendChild(latestOption);
+
+    // 添加分隔线
+    const separator = document.createElement('option');
+    separator.disabled = true;
+    separator.textContent = '────────────────';
+    select.appendChild(separator);
+
+    // 添加其他历史报告（跳过第一个，因为已经作为"最新"显示）
+    allReports.slice(1, 20).forEach(report => {
+        const fullTitle = getReportTitleWithId(report);
         const option = document.createElement('option');
         option.value = report.id;
-        option.textContent = `${displayName} (${report.timestamp ? new Date(report.timestamp).toLocaleDateString('zh-CN') : ''})`;
+        option.textContent = fullTitle;
         select.appendChild(option);
     });
 

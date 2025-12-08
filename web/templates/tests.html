@@ -1299,6 +1299,12 @@ function showTestExecutionCard(isRestoreMode = false) {
     const card = document.getElementById('test-execution-card');
     card.style.display = 'block';
 
+    // 🔧 v3.1.0: 新测试开始时，自动关闭旧的测试结果显示，避免混淆
+    const resultsCard = document.getElementById('current-test-results');
+    if (resultsCard) {
+        resultsCard.style.display = 'none';
+    }
+
     // 只在非恢复模式下重置进度条状态
     if (!isRestoreMode) {
         // 重置进度条状态变量
@@ -1423,54 +1429,66 @@ function startInitializationProgress() {
 }
 
 // 🔧 新增: 启动步骤间微进度动画 - 在步骤执行过程中平滑推进进度条
+// 🔧 修复v3.1.0: 避免闪烁，只在真实进度更新间隔较长时才微调
 function startMicroProgressAnimation() {
     // 清除已有的微进度动画
     if (microProgressInterval) {
         clearInterval(microProgressInterval);
     }
 
+    let lastMicroUpdateTime = Date.now();
+    const MIN_UPDATE_INTERVAL = 2000; // 至少2秒不更新才开始微进度
+
     microProgressInterval = setInterval(() => {
-        // 如果没有目标进度或已达到99%以上，不再微调
-        if (targetProgress >= 99) {
+        // 如果没有目标进度或已达到95%以上，不再微调
+        if (targetProgress >= 95 || targetProgress <= 0) {
             return;
+        }
+
+        // 检查距离上次真实进度更新的时间
+        const timeSinceLastUpdate = Date.now() - lastMicroUpdateTime;
+        if (timeSinceLastUpdate < MIN_UPDATE_INTERVAL) {
+            return; // 如果最近有更新，跳过微进度
         }
 
         // 计算当前可以微推进的最大值
         // 基于lastKnownProgress（上次真实进度）+ microProgressMaxGap
-        const maxMicroProgress = lastKnownProgress + microProgressMaxGap;
+        const maxMicroProgress = Math.min(lastKnownProgress + microProgressMaxGap, 95);
 
-        // 当前显示进度如果已经接近最大值，减缓推进速度
-        if (currentDisplayProgress >= maxMicroProgress - 1) {
-            // 接近最大值时，极慢推进或停止
+        // 当前显示进度如果已经接近最大值，停止推进
+        if (currentDisplayProgress >= maxMicroProgress - 0.5) {
             return;
         }
 
-        // 计算微增量（距离最大值越近，增量越小）
+        // 计算微增量（非常小的增量，避免明显跳动）
         const distanceToMax = maxMicroProgress - currentDisplayProgress;
-        const dynamicIncrement = Math.min(microProgressIncrement, distanceToMax * 0.05);
+        const dynamicIncrement = Math.min(0.3, distanceToMax * 0.02); // 更小的增量
 
         if (dynamicIncrement < 0.05) {
             return; // 增量太小，跳过
         }
 
-        // 微调目标进度
-        const newMicroTarget = currentDisplayProgress + dynamicIncrement;
+        // 微调显示进度（只更新显示，不改变targetProgress）
+        const newDisplayProgress = currentDisplayProgress + dynamicIncrement;
 
-        // 确保不超过最大限制
-        if (newMicroTarget < maxMicroProgress && newMicroTarget > targetProgress) {
-            // 直接更新显示进度（不更新targetProgress，因为那是真实进度）
-            currentDisplayProgress = newMicroTarget;
+        // 确保不超过最大限制，且不回退
+        if (newDisplayProgress > currentDisplayProgress && newDisplayProgress < maxMicroProgress) {
+            currentDisplayProgress = newDisplayProgress;
 
             const progressBar = document.getElementById('test-progress-bar');
             const progressText = document.getElementById('test-progress-text');
             if (progressBar && progressText) {
-                // 🔧 修复: 进度条宽度和文字使用相同的取整值，确保同步
                 const displayValue = Math.round(currentDisplayProgress);
                 progressBar.style.width = displayValue + '%';
                 progressText.textContent = displayValue + '%';
             }
         }
-    }, 50); // 每50ms微调一次（更频繁的更新实现更平滑效果）
+    }, 500); // 每500ms检查一次（降低频率避免闪烁）
+
+    // 暴露更新时间戳的方法，供真实进度更新时调用
+    window.updateMicroProgressTimestamp = function() {
+        lastMicroUpdateTime = Date.now();
+    };
 }
 
 // 隐藏测试执行卡片
@@ -2212,6 +2230,7 @@ function animateProgressBar() {
 
 // 设置目标进度并启动动画
 // 🔧 修复: 进度条只能往前走，不能回退
+// 🔧 修复v3.1.0: 同步更新微进度时间戳，避免闪烁
 function setProgressWithAnimation(percentage, forceUpdate = false) {
     const newTarget = Math.min(100, Math.max(0, percentage));
 
@@ -2221,11 +2240,22 @@ function setProgressWithAnimation(percentage, forceUpdate = false) {
         return; // 忽略回退请求
     }
 
+    // 🔧 v3.1.0: 更新微进度时间戳，避免微进度和真实进度冲突
+    if (window.updateMicroProgressTimestamp) {
+        window.updateMicroProgressTimestamp();
+    }
+
     targetProgress = newTarget;
 
     // 🔧 新增: 更新lastKnownProgress用于微进度动画的边界计算
     // 当收到新的真实进度时，更新lastKnownProgress
     lastKnownProgress = newTarget;
+
+    // 🔧 v3.1.0: 如果真实进度超过了当前显示进度，同步更新显示进度
+    // 这确保进度只会往前走
+    if (newTarget > currentDisplayProgress) {
+        // 不直接跳变，让动画去追赶
+    }
 
     // 如果动画未运行，启动动画
     if (!progressAnimationFrame) {
