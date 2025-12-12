@@ -18,12 +18,12 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- 导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <!-- 导航栏 - 简约黑白风格 -->
+    <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
             <a class="navbar-brand" href="/">
-                <i class="bi bi-shield-check"></i>
-                Fiido 测试工作台
+                <img src="{{ url_for('static', filename='images/fiido-logo.png') }}" alt="Fiido" onerror="this.style.display='none'">
+                <span class="brand-text">Fiido <span>Test</span></span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -32,52 +32,42 @@
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/">
-                            <i class="bi bi-speedometer2"></i> 概览
+                            <i class="bi bi-house-door"></i> 首页
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/products' %}active{% endif %}" href="/products">
-                            <i class="bi bi-box-seam"></i> 商品管理
+                            <i class="bi bi-box-seam"></i> 商品
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/tests' %}active{% endif %}" href="/tests">
-                            <i class="bi bi-play-circle"></i> 测试执行
+                            <i class="bi bi-play-circle"></i> 测试
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.path == '/reports' %}active{% endif %}" href="/reports">
-                            <i class="bi bi-file-earmark-text"></i> 报告中心
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" href="/dashboard">
-                            <i class="bi bi-graph-up"></i> 质量看板
+                            <i class="bi bi-file-text"></i> 报告
                         </a>
                     </li>
                 </ul>
-                <span class="navbar-text">
-                    <span class="badge bg-light text-dark" id="health-status">
-                        <i class="bi bi-circle-fill text-success"></i> 系统正常
-                    </span>
+                <span class="navbar-text" id="health-status">
+                    <i class="bi bi-circle-fill text-success" style="font-size: 8px;"></i> 系统正常
                 </span>
             </div>
         </div>
     </nav>
 
     <!-- 主体内容 -->
-    <div class="container-fluid mt-4">
+    <div class="container-fluid py-4">
         {% block content %}{% endblock %}
     </div>
 
     <!-- 页脚 -->
-    <footer class="footer mt-5 py-3 bg-light">
-        <div class="container text-center">
+    <footer class="footer">
+        <div class="container-fluid text-center">
             <span class="text-muted">
-                Fiido Shop Flow Guardian v1.4.0 |
-                <a href="https://github.com/anthropics/fiido-shop-flow-guardian" target="_blank">
-                    <i class="bi bi-github"></i> GitHub
-                </a>
+                Fiido Shop Flow Guardian v3.2.0
             </span>
         </div>
     </footer>

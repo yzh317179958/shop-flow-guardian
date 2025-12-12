@@ -37,6 +37,9 @@ running_tasks = {}
 # 当前活跃的测试任务ID（每次只能运行一个测试）
 active_test_task_id = None
 
+# 线程锁 - 保护任务状态的并发访问
+task_lock = threading.Lock()
+
 # 任务保留时间（秒）- 已完成的任务保留1小时后自动清理
 TASK_RETENTION_SECONDS = 3600
 
@@ -769,90 +772,93 @@ def run_tests():
     data = request.json or {}
     test_mode = data.get('test_mode', 'quick')  # quick 或 full
 
-    # 检查是否有正在运行的测试
-    if active_test_task_id and active_test_task_id in running_tasks:
-        active_task = running_tasks[active_test_task_id]
-        if active_task.get('status') == 'running':
-            # 返回冲突信息，让前端处理
-            return jsonify({
-                'conflict': True,
-                'active_task_id': active_test_task_id,
-                'active_task_started': active_task.get('started_at'),
-                'active_task_params': active_task.get('params', {}),
-                'message': '已有测试正在运行'
-            }), 409
+    # 使用锁保护检查和设置active_test_task_id
+    with task_lock:
+        # 检查是否有正在运行的测试
+        if active_test_task_id and active_test_task_id in running_tasks:
+            active_task = running_tasks[active_test_task_id]
+            if active_task.get('status') == 'running':
+                # 返回冲突信息，让前端处理
+                return jsonify({
+                    'conflict': True,
+                    'active_task_id': active_test_task_id,
+                    'active_task_started': active_task.get('started_at'),
+                    'active_task_params': active_task.get('params', {}),
+                    'message': '已有测试正在运行'
+                }), 409
 
-    # 构建测试命令
-    # 优先级: product_id > product_ids > category > all
+        # 构建测试命令
+        # 优先级: product_id > product_ids > category > all
 
-    if data.get('product_id'):
-        # 单个商品测试
-        command = [
-            './run.sh',
-            'python3',
-            'scripts/run_product_test.py',
-            '--product-id', data['product_id'],
-            '--mode', test_mode
-        ]
-    elif data.get('product_ids') and len(data.get('product_ids', [])) > 0:
-        # 自定义多选商品测试
-        product_ids = data['product_ids']
-
-        if len(product_ids) == 1:
-            # 只选了一个商品，使用单商品测试脚本
+        if data.get('product_id'):
+            # 单个商品测试
             command = [
                 './run.sh',
                 'python3',
                 'scripts/run_product_test.py',
-                '--product-id', product_ids[0],
+                '--product-id', data['product_id'],
                 '--mode', test_mode
             ]
+        elif data.get('product_ids') and len(data.get('product_ids', [])) > 0:
+            # 自定义多选商品测试
+            product_ids = data['product_ids']
+
+            if len(product_ids) == 1:
+                # 只选了一个商品，使用单商品测试脚本
+                command = [
+                    './run.sh',
+                    'python3',
+                    'scripts/run_product_test.py',
+                    '--product-id', product_ids[0],
+                    '--mode', test_mode
+                ]
+            else:
+                # 多个商品，使用批量测试脚本并传递商品ID列表
+                command = [
+                    './run.sh',
+                    'python3',
+                    'scripts/batch_test_products.py',
+                    '--mode', test_mode,
+                    '--product-ids', ','.join(product_ids)  # 逗号分隔的商品ID列表
+                ]
         else:
-            # 多个商品，使用批量测试脚本并传递商品ID列表
+            # 使用批量测试脚本（按分类或所有商品）
             command = [
                 './run.sh',
                 'python3',
                 'scripts/batch_test_products.py',
-                '--mode', test_mode,
-                '--product-ids', ','.join(product_ids)  # 逗号分隔的商品ID列表
+                '--mode', test_mode
             ]
-    else:
-        # 使用批量测试脚本（按分类或所有商品）
-        command = [
-            './run.sh',
-            'python3',
-            'scripts/batch_test_products.py',
-            '--mode', test_mode
-        ]
 
-        # 添加过滤参数
-        if data.get('priority'):
-            command.extend(['--priority', data['priority']])
+            # 添加过滤参数
+            if data.get('priority'):
+                command.extend(['--priority', data['priority']])
 
-        if data.get('category'):
-            command.extend(['--category', data['category']])
+            if data.get('category'):
+                command.extend(['--category', data['category']])
 
-    task_id = f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        task_id = f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-    running_tasks[task_id] = {
-        'status': 'running',
-        'started_at': datetime.now().isoformat(),
-        'params': data,
-        'test_steps': [],  # 存储测试步骤
-        'test_mode': test_mode,  # 记录测试模式
-        'product_results': {}  # 存储多商品测试结果（按商品分组）
-    }
+        running_tasks[task_id] = {
+            'status': 'running',
+            'started_at': datetime.now().isoformat(),
+            'params': data,
+            'test_steps': [],  # 存储测试步骤
+            'test_mode': test_mode,  # 记录测试模式
+            'product_results': {}  # 存储多商品测试结果（按商品分组）
+        }
 
-    # 设置为当前活跃测试
-    active_test_task_id = task_id
+        # 设置为当前活跃测试
+        active_test_task_id = task_id
 
-    # 后台执行
+    # 后台执行（在锁外启动线程）
     def run_test():
         global active_test_task_id
         run_command(command, task_id)
         # 测试完成后清除活跃标记
-        if active_test_task_id == task_id:
-            active_test_task_id = None
+        with task_lock:
+            if active_test_task_id == task_id:
+                active_test_task_id = None
 
     thread = threading.Thread(target=run_test)
     thread.start()
@@ -1471,5 +1477,5 @@ if __name__ == '__main__':
     print("🌐 访问地址: http://localhost:5000")
     print("=" * 60)
 
-    # 开发模式启动
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # 生产模式启动 (debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

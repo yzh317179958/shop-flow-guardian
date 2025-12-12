@@ -14,16 +14,17 @@
 .custom-option-card .scope-card {
     cursor: pointer;
     transition: all 0.2s ease;
-    border: 2px solid #dee2e6;
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
 }
 .custom-option-card .scope-card:hover {
-    border-color: #0d6efd;
+    border-color: var(--color-black);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-md);
 }
 .custom-option-card .form-check-input:checked + .form-check-label .scope-card {
-    border-color: #0d6efd;
-    background-color: #e7f1ff;
+    border-color: var(--color-black);
+    background-color: var(--gray-50);
 }
 
 /* 分类卡片样式 */
@@ -44,14 +45,14 @@
 /* 商品选择项样式 */
 .product-check-item {
     padding: 8px 12px;
-    border-radius: 4px;
+    border-radius: 6px;
     transition: background-color 0.15s;
 }
 .product-check-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--gray-100);
 }
 .product-check-item .form-check-input:checked ~ .form-check-label {
-    color: #0d6efd;
+    color: var(--color-black);
     font-weight: 500;
 }
 
@@ -59,12 +60,13 @@
 .selected-tag {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
+    padding: 4px 10px;
     margin: 2px;
-    background-color: #e7f1ff;
-    border: 1px solid #0d6efd;
+    background-color: var(--gray-100);
+    border: 1px solid var(--gray-300);
     border-radius: 16px;
     font-size: 12px;
+    color: var(--gray-700);
 }
 .selected-tag .remove-tag {
     margin-left: 4px;
@@ -2336,7 +2338,7 @@ function formatRootCause(rootCause) {
     html = html.replace(/【([^】]+)】/g, '<strong style="color: #d63384;">【$1】</strong>');
 
     // 高亮 • 列表项
-    html = html.replace(/•/g, '<span style="color: #0d6efd;">•</span>');
+    html = html.replace(/•/g, '<span style="color: var(--color-accent);">•</span>');
 
     return html;
 }

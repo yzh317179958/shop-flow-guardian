@@ -1,99 +1,82 @@
 {% extends "base.html" %}
 
-{% block title %}概览 - Fiido 测试工作台{% endblock %}
+{% block title %}首页 - Fiido 测试工作台{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <h2>
-            <i class="bi bi-speedometer2"></i> 系统概览
-        </h2>
-        <p class="text-muted">实时监控测试系统状态和关键指标</p>
-    </div>
+<!-- 页面标题 -->
+<div class="page-header">
+    <h2><i class="bi bi-house-door"></i> 控制台</h2>
+    <p>Fiido 官网购物流程自动化测试系统</p>
 </div>
 
 <!-- 统计卡片 -->
-<div class="row g-4 mb-4">
-    <div class="col-md-3">
-        <div class="card stat-card position-relative">
-            <div class="card-body">
-                <div class="stat-label">总商品数</div>
-                <div class="stat-value text-primary" id="total-products">-</div>
-                <small class="text-muted">已发现的商品</small>
-                <i class="bi bi-box-seam stat-icon text-primary"></i>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="card-body stat-card">
+                <div class="stat-label">商品总数</div>
+                <div class="stat-value" id="total-products">-</div>
             </div>
         </div>
     </div>
-
-    <div class="col-md-3">
-        <div class="card stat-card position-relative">
-            <div class="card-body">
-                <div class="stat-label">测试通过率</div>
-                <div class="stat-value text-success" id="pass-rate">-</div>
-                <small class="text-muted">最近一次测试</small>
-                <i class="bi bi-check-circle stat-icon text-success"></i>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="card-body stat-card">
+                <div class="stat-label">通过率</div>
+                <div class="stat-value" id="pass-rate" style="color: var(--color-success);">-</div>
             </div>
         </div>
     </div>
-
-    <div class="col-md-3">
-        <div class="card stat-card position-relative">
-            <div class="card-body">
-                <div class="stat-label">失败数量</div>
-                <div class="stat-value text-danger" id="failed-count">-</div>
-                <small class="text-muted">需要关注</small>
-                <i class="bi bi-exclamation-circle stat-icon text-danger"></i>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="card-body stat-card">
+                <div class="stat-label">失败数</div>
+                <div class="stat-value" id="failed-count" style="color: var(--color-danger);">-</div>
             </div>
         </div>
     </div>
-
-    <div class="col-md-3">
-        <div class="card stat-card position-relative">
-            <div class="card-body">
-                <div class="stat-label">系统健康度</div>
-                <div class="stat-value text-info" id="health-score">-</div>
-                <small class="text-muted">综合评分</small>
-                <i class="bi bi-heart-pulse stat-icon text-info"></i>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="card-body stat-card">
+                <div class="stat-label">测试报告</div>
+                <div class="stat-value" id="report-count">-</div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- 主要功能区 -->
-<div class="row g-4 mb-4">
+<div class="row g-4">
     <!-- 快速操作 -->
-    <div class="col-lg-6">
-        <div class="card">
+    <div class="col-lg-5">
+        <div class="card h-100">
             <div class="card-header">
-                <i class="bi bi-lightning"></i> 快速操作
+                <i class="bi bi-lightning-charge"></i> 快速操作
             </div>
             <div class="card-body">
                 <div class="d-grid gap-3">
-                    <button class="btn btn-primary btn-lg" onclick="discoverProducts()">
+                    <a href="/tests" class="btn btn-primary btn-lg">
+                        <i class="bi bi-play-circle"></i> 开始测试
+                    </a>
+                    <button class="btn btn-outline-primary btn-lg" onclick="discoverProducts()">
                         <i class="bi bi-search"></i> 发现商品
                     </button>
-                    <button class="btn btn-success btn-lg" onclick="runAllTests()">
-                        <i class="bi bi-play-circle"></i> 运行所有测试
-                    </button>
-                    <button class="btn btn-warning btn-lg" onclick="runP0Tests()">
-                        <i class="bi bi-star"></i> 运行 P0 测试
-                    </button>
-                    <button class="btn btn-info btn-lg" onclick="generateAIReport()">
-                        <i class="bi bi-robot"></i> 生成 AI 报告
-                    </button>
+                    <a href="/reports" class="btn btn-light btn-lg">
+                        <i class="bi bi-file-text"></i> 查看报告
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- 最新测试结果 -->
-    <div class="col-lg-6">
-        <div class="card">
+    <div class="col-lg-7">
+        <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="bi bi-file-earmark-text"></i> 最新测试结果</span>
-                <a href="/reports" class="btn btn-sm btn-outline-primary">查看全部</a>
+                <span><i class="bi bi-clock-history"></i> 最近测试</span>
+                <a href="/reports" class="btn btn-sm btn-light">查看全部</a>
             </div>
-            <div class="card-body" id="latest-report">
+            <div class="card-body" id="recent-tests">
                 <div class="spinner-container">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">加载中...</span>
@@ -104,73 +87,23 @@
     </div>
 </div>
 
-<!-- 趋势图表 -->
-<div class="row g-4 mb-4">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-graph-up"></i> 通过率趋势（最近7天）
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="trendChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-list-check"></i> 测试分类统计
-            </div>
-            <div class="card-body">
-                <div class="chart-container">
-                    <canvas id="categoryChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 最近活动 -->
-<div class="row g-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <i class="bi bi-clock-history"></i> 最近活动
-            </div>
-            <div class="card-body">
-                <div class="timeline" id="recent-activity">
-                    <div class="spinner-container">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- 任务执行Modal -->
 <div class="modal fade" id="taskModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">任务执行中</h5>
+                <h5 class="modal-title">执行中</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-3">
-                    <div class="spinner-border text-primary" role="status">
+                    <div class="spinner-border" role="status">
                         <span class="visually-hidden">执行中...</span>
                     </div>
                 </div>
-                <p class="text-center" id="task-message">正在执行任务，请稍候...</p>
-                <div class="progress">
-                    <div class="progress-bar progress-bar-striped progress-bar-animated"
-                         role="progressbar" style="width: 100%"></div>
+                <p class="text-center mb-3" id="task-message">正在执行任务...</p>
+                <div class="progress" style="height: 4px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
                 </div>
             </div>
         </div>
@@ -180,14 +113,11 @@
 
 {% block extra_js %}
 <script>
-// 页面加载时获取数据
 document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
-    loadLatestReport();
-    loadRecentActivity();
+    loadRecentTests();
 });
 
-// 加载仪表板数据
 async function loadDashboardData() {
     try {
         // 获取商品数量
@@ -195,200 +125,80 @@ async function loadDashboardData() {
         const productsData = await productsRes.json();
         document.getElementById('total-products').textContent = productsData.total || 0;
 
-        // 获取最新报告
-        const reportRes = await fetch('/api/reports/latest');
-        if (reportRes.ok) {
-            const reportData = await reportRes.json();
-            const summary = reportData.summary || {};
+        // 获取报告列表
+        const reportsRes = await fetch('/api/reports/list');
+        const reportsData = await reportsRes.json();
+        document.getElementById('report-count').textContent = reportsData.total || 0;
 
-            // 计算通过率
+        // 获取最新报告统计
+        if (reportsData.reports && reportsData.reports.length > 0) {
+            const latestReport = reportsData.reports[0];
+            const summary = latestReport.summary || {};
             const total = summary.total || 0;
             const passed = summary.passed || 0;
+            const failed = summary.failed || 0;
+
             const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
-
             document.getElementById('pass-rate').textContent = passRate + '%';
-            document.getElementById('failed-count').textContent = summary.failed || 0;
-
-            // 计算健康分数
-            const healthScore = calculateHealthScore(summary);
-            document.getElementById('health-score').textContent = healthScore;
+            document.getElementById('failed-count').textContent = failed;
+        } else {
+            document.getElementById('pass-rate').textContent = '-';
+            document.getElementById('failed-count').textContent = '-';
         }
-
-        // 加载趋势数据
-        loadTrendChart();
-        loadCategoryChart();
-
     } catch (error) {
-        console.error('加载仪表板数据失败:', error);
+        console.error('加载数据失败:', error);
     }
 }
 
-// 计算健康分数
-function calculateHealthScore(summary) {
-    const total = summary.total || 0;
-    if (total === 0) return 'N/A';
-
-    const passed = summary.passed || 0;
-    const passRate = (passed / total) * 100;
-
-    if (passRate >= 95) return 'A';
-    if (passRate >= 85) return 'B';
-    if (passRate >= 70) return 'C';
-    if (passRate >= 60) return 'D';
-    return 'F';
-}
-
-// 加载最新报告
-async function loadLatestReport() {
-    try {
-        const response = await fetch('/api/reports/latest');
-        if (!response.ok) {
-            showEmptyState('latest-report', '暂无测试报告', 'file-earmark-x');
-            return;
-        }
-
-        const data = await response.json();
-        const summary = data.summary || {};
-
-        const html = `
-            <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted">测试时间</span>
-                    <span>${utils.formatDateTime(data.timestamp)}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted">总测试数</span>
-                    <span class="badge bg-primary">${summary.total || 0}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted">通过</span>
-                    <span class="badge bg-success">${summary.passed || 0}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="text-muted">失败</span>
-                    <span class="badge bg-danger">${summary.failed || 0}</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="text-muted">跳过</span>
-                    <span class="badge bg-warning">${summary.skipped || 0}</span>
-                </div>
-            </div>
-            ${summary.duration ? `<p class="text-muted mb-0"><small>执行时间: ${utils.formatDuration(summary.duration)}</small></p>` : ''}
-        `;
-
-        document.getElementById('latest-report').innerHTML = html;
-    } catch (error) {
-        console.error('加载最新报告失败:', error);
-        showError('latest-report', '加载报告失败');
-    }
-}
-
-// 加载最近活动
-async function loadRecentActivity() {
+async function loadRecentTests() {
     try {
         const response = await fetch('/api/reports/list');
         const data = await response.json();
         const reports = data.reports || [];
 
         if (reports.length === 0) {
-            showEmptyState('recent-activity', '暂无活动记录', 'clock-history');
+            document.getElementById('recent-tests').innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <p>暂无测试记录</p>
+                </div>
+            `;
             return;
         }
 
-        const html = reports.slice(0, 5).map(report => `
-            <div class="timeline-item">
-                <strong>测试执行</strong>
-                <span class="text-muted ms-2">${utils.formatDateTime(report.timestamp)}</span>
-                <div class="mt-1">
-                    <span class="badge bg-success">${report.summary?.passed || 0} 通过</span>
-                    <span class="badge bg-danger">${report.summary?.failed || 0} 失败</span>
-                    <span class="badge bg-warning">${report.summary?.skipped || 0} 跳过</span>
-                </div>
-            </div>
-        `).join('');
+        const html = reports.slice(0, 5).map(report => {
+            const summary = report.summary || {};
+            const total = summary.total || 0;
+            const passed = summary.passed || 0;
+            const failed = summary.failed || 0;
+            const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
 
-        document.getElementById('recent-activity').innerHTML = html;
+            return `
+                <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+                    <div>
+                        <div class="fw-medium">${report.test_scope || '测试'}</div>
+                        <small class="text-muted">${utils.formatDateTime(report.timestamp)}</small>
+                    </div>
+                    <div class="text-end">
+                        <div>
+                            <span class="badge bg-success">${passed}</span>
+                            <span class="badge bg-danger">${failed}</span>
+                        </div>
+                        <small class="text-muted">${passRate}% 通过</small>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('recent-tests').innerHTML = html;
     } catch (error) {
-        console.error('加载最近活动失败:', error);
+        console.error('加载最近测试失败:', error);
+        document.getElementById('recent-tests').innerHTML = `
+            <div class="alert alert-danger">加载失败</div>
+        `;
     }
 }
 
-// 加载趋势图表
-async function loadTrendChart() {
-    const ctx = document.getElementById('trendChart');
-    if (!ctx) return;
-
-    // 模拟数据 - 实际应从API获取
-    const data = {
-        labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-        datasets: [{
-            label: '通过率',
-            data: [92, 94, 91, 95, 93, 96, 94],
-            borderColor: 'rgb(13, 110, 253)',
-            backgroundColor: 'rgba(13, 110, 253, 0.1)',
-            fill: true,
-            tension: 0.4
-        }]
-    };
-
-    new Chart(ctx, {
-        type: 'line',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100,
-                    ticks: {
-                        callback: value => value + '%'
-                    }
-                }
-            }
-        }
-    });
-}
-
-// 加载分类图表
-async function loadCategoryChart() {
-    const ctx = document.getElementById('categoryChart');
-    if (!ctx) return;
-
-    // 模拟数据
-    const data = {
-        labels: ['P0', 'P1', 'P2'],
-        datasets: [{
-            data: [15, 35, 50],
-            backgroundColor: [
-                'rgb(220, 53, 69)',
-                'rgb(255, 193, 7)',
-                'rgb(13, 202, 240)'
-            ]
-        }]
-    };
-
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: data,
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                }
-            }
-        }
-    });
-}
-
-// 发现商品
 function discoverProducts() {
     showTaskModal('正在发现商品...');
 
@@ -397,7 +207,6 @@ function discoverProducts() {
         .then(data => {
             utils.pollTaskStatus(data.task_id,
                 (status) => {
-                    // 更新状态消息
                     if (status.progress && status.progress.message) {
                         document.getElementById('task-message').textContent = status.progress.message;
                     }
@@ -405,12 +214,9 @@ function discoverProducts() {
                 (result) => {
                     hideTaskModal();
                     if (result.status === 'completed') {
-                        // 显示统计信息
                         let message = '商品发现完成！';
                         if (result.stats) {
-                            message += `\n扫描分类数: ${result.stats.collections || 0}`;
-                            message += `\n商品总数: ${result.stats.total_products || 0}`;
-                            message += `\n新增商品: ${result.stats.new_products || 0}`;
+                            message += ` 共${result.stats.total_products || 0}个商品`;
                         }
                         utils.showToast(message, 'success');
                         setTimeout(() => location.reload(), 1000);
@@ -426,100 +232,15 @@ function discoverProducts() {
         });
 }
 
-// 运行所有测试
-function runAllTests() {
-    showTaskModal('正在运行所有测试...');
-
-    fetch('/api/tests/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-    })
-        .then(res => res.json())
-        .then(data => {
-            utils.pollTaskStatus(data.task_id, null, result => {
-                hideTaskModal();
-                if (result.status === 'completed') {
-                    utils.showToast('测试执行完成！', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    utils.showToast('测试执行失败', 'error');
-                }
-            });
-        })
-        .catch(error => {
-            hideTaskModal();
-            utils.showToast('启动测试失败: ' + error.message, 'error');
-        });
-}
-
-// 运行P0测试
-function runP0Tests() {
-    showTaskModal('正在运行 P0 测试...');
-
-    fetch('/api/tests/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: 'P0' })
-    })
-        .then(res => res.json())
-        .then(data => {
-            utils.pollTaskStatus(data.task_id, null, result => {
-                hideTaskModal();
-                if (result.status === 'completed') {
-                    utils.showToast('P0 测试执行完成！', 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    utils.showToast('P0 测试执行失败', 'error');
-                }
-            });
-        })
-        .catch(error => {
-            hideTaskModal();
-            utils.showToast('启动测试失败: ' + error.message, 'error');
-        });
-}
-
-// 生成AI报告
-function generateAIReport() {
-    showTaskModal('正在生成 AI 报告...');
-
-    fetch('/api/reports/ai/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: 'deepseek' })
-    })
-        .then(res => res.json())
-        .then(data => {
-            utils.pollTaskStatus(data.task_id, null, result => {
-                hideTaskModal();
-                if (result.status === 'completed') {
-                    utils.showToast('AI 报告生成完成！', 'success');
-                    window.location.href = '/reports';
-                } else {
-                    utils.showToast('AI 报告生成失败', 'error');
-                }
-            });
-        })
-        .catch(error => {
-            hideTaskModal();
-            utils.showToast('启动任务失败: ' + error.message, 'error');
-        });
-}
-
-// 显示任务模态框
 function showTaskModal(message) {
     document.getElementById('task-message').textContent = message;
     const modal = new bootstrap.Modal(document.getElementById('taskModal'));
     modal.show();
 }
 
-// 隐藏任务模态框
 function hideTaskModal() {
     const modal = bootstrap.Modal.getInstance(document.getElementById('taskModal'));
-    if (modal) {
-        modal.hide();
-    }
+    if (modal) modal.hide();
 }
 </script>
 {% endblock %}

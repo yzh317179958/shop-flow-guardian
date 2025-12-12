@@ -2,15 +2,70 @@
 
 {% block title %}商品管理 - Fiido 测试工作台{% endblock %}
 
+{% block extra_css %}
+<style>
+/* 分类标题样式 */
+.category-header {
+    font-size: 1.1rem;
+    color: var(--color-black);
+    padding: 12px 16px;
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.category-header i {
+    color: var(--gray-600);
+}
+.category-header .badge {
+    background: var(--gray-400) !important;
+    font-weight: 500;
+}
+
+/* 商品卡片样式 */
+.product-card {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-normal);
+    cursor: pointer;
+}
+.product-card:hover {
+    border-color: var(--color-black);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+.product-card .card-title {
+    color: var(--color-black);
+    font-weight: 600;
+}
+.product-card .product-info {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+}
+.product-card .card-footer {
+    background: transparent;
+    border-top: 1px solid var(--gray-100);
+    padding-top: 12px;
+}
+
+/* 进度对话框样式 */
+.modal-header.bg-primary {
+    background: var(--color-black) !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
+<!-- 页面标题 -->
+<div class="page-header">
+    <h2><i class="bi bi-box-seam"></i> 商品管理</h2>
+    <p>发现、查看和管理测试商品</p>
+</div>
+
 <div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2>
-                <i class="bi bi-box-seam"></i> 商品管理
-            </h2>
-            <p class="text-muted">发现、查看和管理测试商品</p>
-        </div>
+    <div class="col-12 d-flex justify-content-end">
         <button class="btn btn-primary btn-lg" onclick="discoverProducts()">
             <i class="bi bi-search"></i> 发现商品
         </button>
@@ -50,35 +105,35 @@
 
 <!-- 商品统计 -->
 <div class="row g-3 mb-4">
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h6 class="text-muted">总商品数</h6>
-                <h2 class="mb-0" id="stat-total">0</h2>
+            <div class="card-body stat-card">
+                <div class="stat-label">商品总数</div>
+                <div class="stat-value" id="stat-total">0</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h6 class="text-muted">整车</h6>
-                <h2 class="mb-0 text-danger" id="stat-p0">0</h2>
+            <div class="card-body stat-card">
+                <div class="stat-label">整车</div>
+                <div class="stat-value" id="stat-p0" style="color: var(--color-danger);">0</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h6 class="text-muted">重要配件</h6>
-                <h2 class="mb-0 text-warning" id="stat-p1">0</h2>
+            <div class="card-body stat-card">
+                <div class="stat-label">重要配件</div>
+                <div class="stat-value" id="stat-p1" style="color: var(--color-warning);">0</div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
+    <div class="col-6 col-md-3">
         <div class="card">
-            <div class="card-body text-center">
-                <h6 class="text-muted">普通配件</h6>
-                <h2 class="mb-0 text-info" id="stat-p2">0</h2>
+            <div class="card-body stat-card">
+                <div class="stat-label">普通配件</div>
+                <div class="stat-value" id="stat-p2" style="color: var(--color-info);">0</div>
             </div>
         </div>
     </div>
@@ -232,7 +287,7 @@ function displayProducts() {
                                     </div>
                                     <div class="product-info">
                                         <div class="mb-2">
-                                            <i class="bi bi-tag text-primary"></i> ${formatPriceRange(product)}
+                                            <i class="bi bi-tag" style="color: var(--gray-500);"></i> ${formatPriceRange(product)}
                                         </div>
                                         ${product.variants && product.variants.length > 0 ? `
                                             <p class="text-muted small mb-1">
@@ -692,10 +747,10 @@ function formatPriceRange(product) {
     };
 
     if (priceMin === priceMax) {
-        return `<span class="text-success fw-bold">$${formatPrice(priceMin)}</span>`;
+        return `<span style="color: var(--color-black); font-weight: 600;">$${formatPrice(priceMin)}</span>`;
     }
 
-    return `<span class="text-success fw-bold">$${formatPrice(priceMin)}</span> - <span class="text-success fw-bold">$${formatPrice(priceMax)}</span>`;
+    return `<span style="color: var(--color-black); font-weight: 600;">$${formatPrice(priceMin)}</span> - <span style="color: var(--color-black); font-weight: 600;">$${formatPrice(priceMax)}</span>`;
 }
 </script>
 {% endblock %}
