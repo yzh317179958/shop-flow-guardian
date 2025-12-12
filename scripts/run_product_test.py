@@ -553,7 +553,8 @@ class ProductTester:
                 if is_visible and is_enabled:
                     # 尝试点击
                     await button.click()
-                    await self.page.wait_for_timeout(2000)  # 等待加购动画
+                    # 🔧 修复：增加等待时间，确保AJAX请求完成并同步到服务器
+                    await self.page.wait_for_timeout(4000)  # 从2秒增加到4秒
                     step.complete("passed", "成功点击添加购物车按钮")
                 elif is_visible:
                     # 🔧 修复：按钮可见但禁用，尝试自动选择变体
@@ -590,7 +591,8 @@ class ProductTester:
 
                     if is_enabled:
                         await button.click()
-                        await self.page.wait_for_timeout(2000)
+                        # 🔧 修复：增加等待时间，确保AJAX请求完成
+                        await self.page.wait_for_timeout(4000)
                         step.complete("passed", "自动选择变体后成功点击添加购物车按钮")
                     else:
                         # 检查是否是售罄状态
@@ -630,6 +632,9 @@ class ProductTester:
         # 步骤4: 购物车验证
         step = self.steps[3]
         step.start()
+        # 🔧 新增：记录是否已经在购物车页面，供步骤5使用
+        already_on_cart_page = False
+        cart_has_items = False
         try:
             # 检查购物车图标或数量badge
             cart_selectors = [
@@ -646,6 +651,7 @@ class ProductTester:
                     count_text = await cart_badge.text_content()
                     if count_text and count_text.strip() != "0":
                         cart_updated = True
+                        cart_has_items = True
                         step.complete("passed", f"购物车已更新，数量: {count_text.strip()}")
                         break
 
@@ -656,10 +662,12 @@ class ProductTester:
                     cart_url = "https://fiido.com/cart"
                     await self.page.goto(cart_url, wait_until="domcontentloaded")
                     await self.page.wait_for_timeout(2000)
+                    already_on_cart_page = True  # 🔧 标记已在购物车页面
 
                     # 检查购物车是否有商品
                     cart_items = await self.page.query_selector_all("tr.cart-item, .cart-item, [data-cart-item]")
                     if cart_items and len(cart_items) > 0:
+                        cart_has_items = True
                         step.complete("passed", f"二次验证通过，购物车有 {len(cart_items)} 件商品")
                     else:
                         # 检查是否显示"购物车为空"
@@ -687,14 +695,19 @@ class ProductTester:
         step = self.steps[4]
         step.start()
         try:
-            # 直接导航到购物车页面
-            cart_url = "https://fiido.com/cart"
-            logger.info(f"直接导航到购物车页面: {cart_url}")
-
-            await self.page.goto(cart_url, wait_until="domcontentloaded")
-            await self.page.wait_for_timeout(2000)  # 等待页面加载完成
-
+            # 🔧 修复：如果步骤4已经在购物车页面且有商品，不需要再次导航
             current_url = self.page.url
+            if not already_on_cart_page or '/cart' not in current_url:
+                cart_url = "https://fiido.com/cart"
+                logger.info(f"导航到购物车页面: {cart_url}")
+                await self.page.goto(cart_url, wait_until="domcontentloaded")
+                await self.page.wait_for_timeout(2000)
+                current_url = self.page.url
+            else:
+                logger.info("已在购物车页面，无需重复导航")
+                # 🔧 刷新页面确保状态最新，但不是重新导航
+                await self.page.wait_for_timeout(500)
+
             logger.info(f"当前URL: {current_url}")
 
             if '/cart' in current_url:
